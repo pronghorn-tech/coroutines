@@ -10,7 +10,9 @@ import tech.pronghorn.util.runAllIgnoringExceptions
 import java.nio.channels.ClosedSelectorException
 import java.nio.channels.SelectionKey
 import java.nio.channels.Selector
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
 import kotlin.coroutines.experimental.RestrictsSuspension
 
@@ -139,14 +141,36 @@ abstract class CoroutineWorker {
     open protected fun onStart() = Unit
 
     private fun startInternal() {
-        onStart()
-        isRunning = true
-        services.forEach(Service::start)
+        startedLock.lock()
+        try {
+            onStart()
+            services.forEach(Service::start)
+            isRunning = true
+        }
+        finally {
+            started = true
+            startedCondition.signal()
+            startedLock.unlock()
+        }
+
         run()
     }
 
+    private val startedLock = ReentrantLock()
+    private val startedCondition = startedLock.newCondition()
+    @Volatile private var started = false
+
     fun start() {
-        workerThread.start()
+        startedLock.lock()
+        try {
+            workerThread.start()
+            while (!started) {
+                startedCondition.await()
+            }
+        }
+        finally {
+            startedLock.unlock()
+        }
     }
 
     private fun shutdownInternal() {
@@ -164,8 +188,8 @@ abstract class CoroutineWorker {
         runAllIgnoringExceptions(
                 { runQueue.clear() },
                 { services.forEach(Service::shutdown) },
-                { workerThread.interrupt() },
                 { selector.close() },
+                { workerThread.interrupt() },
                 { workerThread.join() }
         )
 
