@@ -5,12 +5,11 @@ import tech.pronghorn.coroutines.awaitable.ExternalQueue
 import tech.pronghorn.coroutines.awaitable.InternalFuture
 import tech.pronghorn.coroutines.awaitable.InternalQueue
 import tech.pronghorn.coroutines.service.*
-import tech.pronghorn.plugins.mpsc.MpscQueuePlugin
+import tech.pronghorn.plugins.mpscQueue.MpscQueuePlugin
 import tech.pronghorn.util.runAllIgnoringExceptions
 import java.nio.channels.ClosedSelectorException
 import java.nio.channels.SelectionKey
 import java.nio.channels.Selector
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
@@ -184,7 +183,7 @@ abstract class CoroutineWorker {
     }
 
     fun shutdown() {
-        logger.debug("$workerID Requesting shutdown")
+        logger.debug { "$workerID Requesting shutdown" }
         runAllIgnoringExceptions(
                 { runQueue.clear() },
                 { services.forEach(Service::shutdown) },
@@ -196,7 +195,7 @@ abstract class CoroutineWorker {
     }
 
     fun runService(service: Service) {
-        logger.debug("$workerID Yielding to service: $service")
+        logger.debug { "$workerID Yielding to service: $service" }
         service.isQueued = false
         service.resume()
     }
@@ -238,7 +237,7 @@ abstract class CoroutineWorker {
     }
 
     private fun run() {
-        logger.debug("$workerID worker.run()")
+        logger.debug { "$workerID worker.run()" }
         nextTimedServiceTime = calculateNextTimedServiceTime()
         var selectedCount = 0
         while (true) {
@@ -251,14 +250,14 @@ abstract class CoroutineWorker {
                 }
                 else {
 //                    println("select()")
-                    logger.debug("$workerID No runnable services, calling select()... ${runQueue.size}")
+                    logger.debug { "$workerID No runnable services, calling select()... ${runQueue.size}" }
                     val wakeTime = calculateSelectTimeout()
                     selectedCount = when {
                         wakeTime == null -> selector.select()
                         wakeTime <= 0L -> selector.selectNow()
                         else -> selector.select(wakeTime + 1)
                     }
-                    logger.debug("$workerID Selector has woken up.")
+                    logger.debug { "$workerID Selector has woken up." }
                 }
 
                 runTimedServices()

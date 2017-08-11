@@ -1,6 +1,6 @@
 package tech.pronghorn.coroutines.core
 
-import tech.pronghorn.plugins.spsc.SpscQueuePlugin
+import tech.pronghorn.plugins.spscQueue.SpscQueuePlugin
 
 abstract class Trackable {
     private val results = SpscQueuePlugin.get<TrackingResult>(256)

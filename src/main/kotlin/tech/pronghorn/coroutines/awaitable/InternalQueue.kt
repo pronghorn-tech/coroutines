@@ -1,7 +1,7 @@
 package tech.pronghorn.coroutines.awaitable
 
 import mu.KotlinLogging
-import tech.pronghorn.plugins.spsc.SpscQueuePlugin
+import tech.pronghorn.plugins.spscQueue.SpscQueuePlugin
 import tech.pronghorn.util.roundToPowerOfTwo
 import java.util.*
 

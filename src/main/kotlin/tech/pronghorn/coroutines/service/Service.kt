@@ -71,7 +71,7 @@ abstract class Service {
     }
 
     fun <T> wake(value: T) {
-        logger.debug("Waking service $serviceID")
+        logger.debug { "Waking service $serviceID" }
         if(wakeValue != null){
             throw IllegalStateException("Unexpected overwrite of wake value.")
         }
@@ -89,7 +89,7 @@ abstract class Service {
     }
 
     protected suspend fun yieldAsync() {
-        logger.debug("Yielding to worker...")
+        logger.debug { "Yielding to worker..." }
         suspendCoroutine { continuation: Continuation<Any> ->
             yield(continuation)
             wake(Unit)
