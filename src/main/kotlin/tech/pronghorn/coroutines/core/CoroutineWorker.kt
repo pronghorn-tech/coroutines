@@ -25,8 +25,8 @@ private val schedulerID = AtomicLong(0)
 abstract class CoroutineWorker {
     abstract protected val logger: KLogger
     val workerID = schedulerID.incrementAndGet()
+    // TODO("make this private again")
     /*private */val selector: Selector = Selector.open()
-//    val foo: Unit = TODO("make this private again")
 
     fun next() = runQueue.poll()?.resume()
 
@@ -63,14 +63,15 @@ abstract class CoroutineWorker {
 
     private val interSchedulerPromiseCompletions = MpscQueuePlugin.get<FinishedPromise<Any>>(1024)
 
+    @Suppress("UNCHECKED_CAST")
     fun <T> crossThreadCompletePromise(promise: InternalFuture.InternalPromise<T>,
                                        value: T){
-        @Suppress("UNCHECKED_CAST")
         interSchedulerPromiseCompletions.offer(FinishedPromise(promise, value) as FinishedPromise<Any>)
         selector.wakeup()
     }
 
-    inline fun <reified WorkType : Any, reified ServiceType : InternalQueueService<WorkType>> requestInternalWriter(): InternalQueue.InternalQueueWriter<WorkType> {
+    inline fun <reified WorkType : Any, reified ServiceType : InternalQueueService<WorkType>>
+            requestInternalWriter(): InternalQueue.InternalQueueWriter<WorkType> {
         val service = services.find { it is ServiceType }
 
         if (service != null) {
@@ -239,20 +240,16 @@ abstract class CoroutineWorker {
     private fun run() {
         logger.debug { "$workerID worker.run()" }
         nextTimedServiceTime = calculateNextTimedServiceTime()
-        var selectedCount = 0
         while (true) {
             try {
                 val runnable = runQueue.poll()
                 if (runnable != null) {
-                    when (runnable) {
-                        is Service -> runService(runnable)
-                    }
+                    runService(runnable)
                 }
                 else {
-//                    println("select()")
                     logger.debug { "$workerID No runnable services, calling select()... ${runQueue.size}" }
                     val wakeTime = calculateSelectTimeout()
-                    selectedCount = when {
+                    when {
                         wakeTime == null -> selector.select()
                         wakeTime <= 0L -> selector.selectNow()
                         else -> selector.select(wakeTime + 1)
@@ -262,26 +259,17 @@ abstract class CoroutineWorker {
 
                 runTimedServices()
 
-                if (selectedCount > 0) {
-                    val selected = selector.selectedKeys()
-                    for (key in selected) {
-                        processKey(key)
-                    }
-                    selected.clear()
+                val selected = selector.selectedKeys()
+                selected.forEach { key ->
+                    processKey(key)
                 }
+                selected.clear()
 
-//                println("Completing promises from interSchedulerPromiseCompletions")
                 var promiseCompletion = interSchedulerPromiseCompletions.poll()
                 while(promiseCompletion != null){
-//                    println("Completing $promiseCompletion")
                     promiseCompletion.promise.complete(promiseCompletion.value)
                     promiseCompletion = interSchedulerPromiseCompletions.poll()
                 }
-
-//                interSchedulerServiceRequests.keys().iterator().forEach { service ->
-//                    interSchedulerServiceRequests.remove(service)
-//                    enqueue(service)
-//                }
             }
             catch(ex: InterruptedException) {
                 // shutting down

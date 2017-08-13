@@ -10,8 +10,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 abstract class SingleWriterExternalQueueService<WorkType>(queueCapacity: Int = 1024) : QueueService<WorkType>() {
     private val queue = ExternalQueue<WorkType>(queueCapacity, this)
 
-//        TODO("WorkItem<WorkType>")
-
     private val queueWriterGiven = AtomicBoolean(false)
 
     protected val queueReader = queue.queueReader

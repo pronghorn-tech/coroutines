@@ -89,15 +89,23 @@ class InternalQueue<T>(private val queue: Queue<T>) {
             }
         }
 
+        suspend fun awaitAsync(): T {
+            val future = InternalFuture<T>()
+            wrapper.emptyPromise = future.promise()
+            return future.awaitAsync()
+        }
+
+        /*
+           NOTE: a poll() followed by an awaitAsync is preferred when performance is important
+           to avoid unnecessary suspending function calls
+         */
         suspend fun nextAsync(): T {
             val result = poll()
             if (result != null) {
                 return result
             }
             else {
-                val future = InternalFuture<T>()
-                wrapper.emptyPromise = future.promise()
-                return future.awaitAsync()
+                return awaitAsync()
             }
         }
     }

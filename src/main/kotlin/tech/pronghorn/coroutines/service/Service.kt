@@ -59,8 +59,6 @@ abstract class Service {
         val wakeValue = this.wakeValue
         val continuation = this.continuation
         if(wakeValue == null || continuation == null){
-            println("Unexpected null wake value ($wakeValue) ($continuation).")
-            System.exit(1)
             throw IllegalStateException("Unexpected null wake value.")
         }
         else {

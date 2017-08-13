@@ -89,7 +89,7 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null) {
                 }
                 is EmptyCoroutineContext -> waiter.resume(value)
                 else -> {
-                    println("Can't wake context $context")
+                    logger.error("Can't wake context $context")
                     System.exit(1)
                 }
             }

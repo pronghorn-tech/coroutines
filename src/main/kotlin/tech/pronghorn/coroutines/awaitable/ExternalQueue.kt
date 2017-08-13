@@ -2,16 +2,15 @@ package tech.pronghorn.coroutines.awaitable
 
 import tech.pronghorn.coroutines.service.QueueService
 import tech.pronghorn.plugins.spscQueue.SpscQueuePlugin
-import tech.pronghorn.util.roundToPowerOfTwo
+import tech.pronghorn.util.isPowerOfTwo
 import java.util.concurrent.locks.ReentrantLock
-
 
 class ExternalQueue<T>(capacity: Int,
                        val service: QueueService<T>) {
     init {
         if (capacity < 4) {
             throw Exception("Queue size must be at least four.")
-        } else if (roundToPowerOfTwo(capacity) != capacity) {
+        } else if (!isPowerOfTwo(capacity)) {
             throw Exception("Queue sizes must be powers of two.")
         }
     }

@@ -4,13 +4,19 @@ import org.junit.Test
 import tech.pronghorn.coroutines.awaitable.InternalFuture
 import tech.pronghorn.coroutines.awaitable.InternalQueue
 import tech.pronghorn.coroutines.awaitable.await
-import tech.pronghorn.coroutines.core.myLaunch
+import tech.pronghorn.coroutines.core.ServiceCoroutine
 import tech.pronghorn.coroutines.core.myRun
 import tech.pronghorn.test.CDBTest
 import tech.pronghorn.util.roundToPowerOfTwo
 import kotlin.concurrent.thread
 import kotlin.coroutines.experimental.*
 import kotlin.test.assertEquals
+
+fun <T> myLaunch(context: CoroutineContext,
+                 block: suspend () -> T): Continuation<Unit> {
+    val coroutine = ServiceCoroutine<T>(context)
+    return block.createCoroutine(coroutine)
+}
 
 object TestScheduler {
     private var a: Continuation<Unit>? = null

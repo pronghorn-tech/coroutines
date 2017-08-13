@@ -13,7 +13,6 @@ abstract class InternalQueueService<WorkType>(queueCapacity: Int = 16384) : Queu
 
     override fun getQueueWriter(): InternalQueue.InternalQueueWriter<WorkType> {
         assert(worker.isSchedulerThread())
-//        TODO("Wrap in WorkItem")
         return queue.queueWriter
     }
 
@@ -28,28 +27,15 @@ abstract class InternalQueueService<WorkType>(queueCapacity: Int = 16384) : Queu
 
             val finished = process(workItem)
             if (!finished) {
+                val prevWorkItem = workItem
                 workItem = queueReader.pollAndAdd(workItem)
+                if(workItem == prevWorkItem){
+                    yieldAsync()
+                }
             }
             else {
-                workItem = queueReader.nextAsync()
+                workItem = queueReader.poll() ?: queueReader.awaitAsync()
             }
         }
     }
 }
-//
-//
-//class ReadyContinuation<T>(val continuation: Continuation<T>,
-//                           val value: T)
-//
-//class CoroutineManagerService() : InternalQueueService<ReadyContinuation<Any>>() {
-//    suspend override fun process(work: ReadyContinuation<Any>): Boolean {
-//        work.continuation.resume(value)
-//    }
-//
-//    override val logger: KLogger = TODO()
-//    override val worker: CoroutineWorker = TODO()
-//
-//    suspend override fun run() {
-//        TODO()
-//    }
-//}

@@ -62,7 +62,7 @@ class _PingService(override val worker: CoroutineWorker,
 
     var workDone = 0L
 
-    val pongWriter by lazy {
+    val pongWriter by lazy(LazyThreadSafetyMode.NONE) {
         pongService?.getQueueWriter()
     }
 
@@ -84,7 +84,7 @@ class _PongService(override val worker: CoroutineWorker,
     override val logger = KotlinLogging.logger {}
     var pingService: PingService? = null
 
-    val pingWriter by lazy {
+    val pingWriter by lazy(LazyThreadSafetyMode.NONE) {
         pingService?.getQueueWriter()
     }
     var workDone = 0L
