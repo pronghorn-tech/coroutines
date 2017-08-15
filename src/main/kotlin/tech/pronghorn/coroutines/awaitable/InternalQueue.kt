@@ -5,13 +5,9 @@ import tech.pronghorn.plugins.spscQueue.SpscQueuePlugin
 import tech.pronghorn.util.roundToPowerOfTwo
 import java.util.*
 
-interface QueueWriter<in T> {
-    fun offer(value: T): Boolean
-}
 
-interface QueueReader<out T> {
-    fun poll(): T?
-}
+
+
 
 class InternalQueue<T>(private val queue: Queue<T>) {
     val capacity = queue.size

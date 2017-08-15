@@ -25,7 +25,14 @@ abstract class InternalQueueService<WorkType>(queueCapacity: Int = 16384) : Queu
                 yieldAsync()
             }
 
+//            val preProcess = System.currentTimeMillis()
             val finished = process(workItem)
+//            val postProcess = System.currentTimeMillis()
+//            if(postProcess - preProcess > 10){
+//                logger.error("Processing in ${this.javaClass.name} took ${postProcess - preProcess} ms")
+//            }
+
+//            val finished = process(workItem)
             if (!finished) {
                 val prevWorkItem = workItem
                 workItem = queueReader.pollAndAdd(workItem)

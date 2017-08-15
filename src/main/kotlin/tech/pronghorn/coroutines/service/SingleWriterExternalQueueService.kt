@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * This variety of queue service supports queueing from worker other than the one running this service.
  * Because of this, functionality is limited
  */
-abstract class SingleWriterExternalQueueService<WorkType>(queueCapacity: Int = 1024) : QueueService<WorkType>() {
+abstract class SingleWriterExternalQueueService<WorkType>(queueCapacity: Int = 16384) : QueueService<WorkType>() {
     private val queue = ExternalQueue<WorkType>(queueCapacity, this)
 
     private val queueWriterGiven = AtomicBoolean(false)
@@ -31,7 +31,12 @@ abstract class SingleWriterExternalQueueService<WorkType>(queueCapacity: Int = 1
             if (shouldYield()) {
                 yieldAsync()
             }
+//            val preProcess = System.currentTimeMillis()
             process(workItem)
+//            val postProcess = System.currentTimeMillis()
+//            if(postProcess - preProcess > 10){
+//                logger.error("Processing in ${this.javaClass.name} took ${postProcess - preProcess} ms")
+//            }
         }
     }
 }
