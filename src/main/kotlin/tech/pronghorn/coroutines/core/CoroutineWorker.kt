@@ -263,11 +263,6 @@ abstract class CoroutineWorker {
     private fun run() {
         logger.debug { "$workerID worker.run()" }
         nextTimedServiceTime = calculateNextTimedServiceTime()
-        var last = System.currentTimeMillis()
-        var totalSel = 0
-        var selCount = 0
-        var idleTime = 0
-        var idleSessions = 0
         while (true) {
             try {
                 var runnable = runQueue.poll()
@@ -279,35 +274,19 @@ abstract class CoroutineWorker {
                     selector.selectNow()
                 }
                 else {
-//                    logger.warn { "$workerID No runnable services, calling select()... ${runQueue.size}" }
                     val wakeTime = calculateSelectTimeout()
 
-//                    val idleStart = System.currentTimeMillis()
                     when {
                         wakeTime == null -> selector.select()
                         wakeTime <= 0L -> selector.selectNow()
                         else -> selector.select(wakeTime + 1)
                     }
-//                    val idleEnd = System.currentTimeMillis()
-//                    idleTime += (idleEnd - idleStart).toInt()
-//                    idleSessions += 1
                     logger.debug { "$workerID Selector has woken up." }
                 }
 
                 runTimedServices()
 
                 val selected = selector.selectedKeys()
-//                totalSel += selected.size
-//                selCount += 1
-//                val now = System.currentTimeMillis()
-//                if(now - last > 1000){
-//                    logger.warn("Selections: $selCount, Avg: ${totalSel / selCount}, Idle sessions: $idleSessions, Idle time: $idleTime")
-//                    totalSel = 0
-//                    selCount = 0
-//                    idleTime = 0
-//                    idleSessions = 0
-//                    last = now
-//                }
                 selected.forEach { key ->
                     processKey(key)
                 }
