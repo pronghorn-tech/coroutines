@@ -26,7 +26,7 @@ abstract class Service {
     var continuation: Continuation<Any>? = null
         private set
 
-    abstract protected suspend fun run()
+    abstract suspend protected fun run()
 
     /**
      * Offers a hook for a function to be called each time this service suspends, useful for counters or stats tracking.

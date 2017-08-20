@@ -17,6 +17,15 @@ import kotlin.coroutines.experimental.RestrictsSuspension
 
 private val schedulerID = AtomicLong(0)
 
+interface InterWorkerMessage
+
+data class PromiseCompletionMessage<T>(val promise: InternalFuture.InternalPromise<T>,
+                                       val value: T) : InterWorkerMessage {
+    fun complete() {
+        promise.complete(value)
+    }
+}
+
 /**
  * Runs process() for each SelectionKey triggered by its Selector
  * This happens on A dedicated thread that runs when start() is called
@@ -31,13 +40,13 @@ abstract class CoroutineWorker {
     fun next() = runQueue.poll()?.resume()
 
     fun offerReady(service: Service): Unit {
-        if(!runQueue.offer(service)){
+        if (!runQueue.offer(service)) {
             throw Exception("Unexpectedly failed to enqueue service.")
         }
     }
 
     private val workerThread = thread(start = false, name = "${this::class.simpleName}-$workerID") {
-//        TODO("this used to be this")
+        //        TODO("this used to be this")
         //CoroutineScheduler.setLocalScheduler(this)
         startInternal()
     }
@@ -56,18 +65,32 @@ abstract class CoroutineWorker {
     private var nextTimedServiceTime: Long? = null
 
     private val runQueue = MpscQueuePlugin.get<Service>(1024)
-//    private val interSchedulerServiceRequests = NonBlockingHashMap<Service, Long>(16)
 
     class FinishedPromise<T>(val promise: InternalFuture.InternalPromise<T>,
                              val value: T)
 
-    private val interSchedulerPromiseCompletions = MpscQueuePlugin.get<FinishedPromise<Any>>(1024)
+//    private val interSchedulerPromiseCompletions = MpscQueuePlugin.get<FinishedPromise<Any>>(1024)
+
+    @Volatile private var hasInterWorkerMessages = false
+
+    private val interWorkerMessages = MpscQueuePlugin.get<InterWorkerMessage>(16384)
+
+    fun sendInterWorkerMessage(message: InterWorkerMessage): Boolean {
+        if (interWorkerMessages.offer(message)) {
+            hasInterWorkerMessages = true
+            selector.wakeup()
+            return true
+        }
+        else {
+            logger.error("Failed to send inter worker message, queue full.")
+            return false
+        }
+    }
 
     @Suppress("UNCHECKED_CAST")
     fun <T> crossThreadCompletePromise(promise: InternalFuture.InternalPromise<T>,
-                                       value: T){
-        interSchedulerPromiseCompletions.offer(FinishedPromise(promise, value) as FinishedPromise<Any>)
-        selector.wakeup()
+                                       value: T) {
+        sendInterWorkerMessage(PromiseCompletionMessage(promise, value))
     }
 
     inline fun <reified WorkType : Any, reified ServiceType : InternalQueueService<WorkType>>
@@ -249,7 +272,7 @@ abstract class CoroutineWorker {
             try {
                 var runnable = runQueue.poll()
                 if (runnable != null) {
-                    while(runnable != null) {
+                    while (runnable != null) {
                         runService(runnable)
                         runnable = runQueue.poll()
                     }
@@ -290,21 +313,27 @@ abstract class CoroutineWorker {
                 }
                 selected.clear()
 
-                var promiseCompletion = interSchedulerPromiseCompletions.poll()
-                while(promiseCompletion != null){
-                    promiseCompletion.promise.complete(promiseCompletion.value)
-                    promiseCompletion = interSchedulerPromiseCompletions.poll()
+                if (hasInterWorkerMessages) {
+                    var message = interWorkerMessages.poll()
+                    while (message != null) {
+                        if(!internalHandleMessage(message)) {
+                            if(!handleMessage(message)){
+                                logger.warn("Unhandled message : $message")
+                            }
+                        }
+                        message = interWorkerMessages.poll()
+                    }
                 }
             }
-            catch(ex: InterruptedException) {
+            catch (ex: InterruptedException) {
                 // shutting down
                 break
             }
-            catch(ex: ClosedSelectorException) {
+            catch (ex: ClosedSelectorException) {
                 // shutting down
                 break
             }
-            catch(ex: Exception) {
+            catch (ex: Exception) {
                 ex.printStackTrace()
             }
             catch (ex: Error) {
@@ -319,6 +348,17 @@ abstract class CoroutineWorker {
         catch (ex: Throwable) {
             ex.printStackTrace()
         }
+    }
+
+    open fun handleMessage(message: InterWorkerMessage): Boolean = false
+
+    private fun internalHandleMessage(message: InterWorkerMessage): Boolean {
+        if (message is PromiseCompletionMessage<*>) {
+            message.complete()
+            return true
+        }
+
+        return false
     }
 
     abstract fun processKey(key: SelectionKey): Unit
