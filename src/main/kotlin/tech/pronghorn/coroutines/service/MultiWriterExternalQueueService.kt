@@ -9,7 +9,7 @@ abstract class MultiWriterExternalQueueService<WorkType>(queueCapacity: Int = 16
 
     override fun getQueueWriter(): ExternalQueue.ExternalQueueWriter<WorkType> = queue.queueWriter
 
-    abstract suspend fun process(work: WorkType): Unit
+    abstract suspend fun process(work: WorkType)
 
     override suspend fun run(): Unit {
         while (isRunning) {

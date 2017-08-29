@@ -33,21 +33,18 @@ data class PromiseCompletionMessage<T>(val promise: InternalFuture.InternalPromi
 @RestrictsSuspension
 abstract class CoroutineWorker {
     abstract protected val logger: KLogger
+    protected val selector: Selector = Selector.open()
     val workerID = schedulerID.incrementAndGet()
-    // TODO("make this private again")
-    /*private */val selector: Selector = Selector.open()
 
     fun next() = runQueue.poll()?.resume()
 
-    fun offerReady(service: Service): Unit {
+    fun offerReady(service: Service) {
         if (!runQueue.offer(service)) {
             throw Exception("Unexpectedly failed to enqueue service.")
         }
     }
 
     private val workerThread = thread(start = false, name = "${this::class.simpleName}-$workerID") {
-        //        TODO("this used to be this")
-        //CoroutineScheduler.setLocalScheduler(this)
         startInternal()
     }
 
@@ -65,11 +62,6 @@ abstract class CoroutineWorker {
     private var nextTimedServiceTime: Long? = null
 
     private val runQueue = MpscQueuePlugin.get<Service>(1024)
-
-    class FinishedPromise<T>(val promise: InternalFuture.InternalPromise<T>,
-                             val value: T)
-
-//    private val interSchedulerPromiseCompletions = MpscQueuePlugin.get<FinishedPromise<Any>>(1024)
 
     @Volatile private var hasInterWorkerMessages = false
 
@@ -128,36 +120,6 @@ abstract class CoroutineWorker {
             throw Exception("No service of requested type.")
         }
     }
-
-    /*
-     * Used from other worker to notify this worker that there's new work for a service which
-     * receives its work from an external source.
-     */
-//    fun wakeService(service: Service) {
-//        var newValue = false
-//        interSchedulerServiceRequests.computeIfAbsent(service, {
-//            newValue = true
-//            roughOrdering.increment()
-//            roughOrdering.sum()
-//        })
-//
-//        if (newValue) {
-//            selector.wakeup()
-//        }
-//    }
-
-    // This function is not safe to use outside of this CoroutineWorker's worker thread
-/*    fun enqueue(service: Service) {
-//        assert(isSchedulerThread())
-//        if (runQueue.contains(service)) {
-//            throw Exception("Duplicate service in runQueue")
-//        }
-
-        if (!service.isQueued) {
-            service.isQueued = true
-            runQueue.add(service)
-        }
-    }*/
 
     open protected fun onShutdown() = Unit
 

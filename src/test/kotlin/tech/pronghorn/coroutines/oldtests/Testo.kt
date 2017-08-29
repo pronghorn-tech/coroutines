@@ -5,7 +5,7 @@ import tech.pronghorn.coroutines.awaitable.InternalFuture
 import tech.pronghorn.coroutines.awaitable.InternalQueue
 import tech.pronghorn.coroutines.awaitable.await
 import tech.pronghorn.coroutines.core.ServiceCoroutine
-import tech.pronghorn.coroutines.core.myRun
+import tech.pronghorn.coroutines.core.launchServiceCoroutine
 import tech.pronghorn.test.CDBTest
 import tech.pronghorn.util.roundToPowerOfTwo
 import kotlin.concurrent.thread
@@ -67,7 +67,7 @@ class Testo : CDBTest() {
             TestScheduler.setB(b)
 
             while (x < 100000000) {
-                myRun(EmptyCoroutineContext) {
+                launchServiceCoroutine(EmptyCoroutineContext) {
                     x += 1
                     if (x % 100 == 0) {
                         TestScheduler.yield()
@@ -92,7 +92,7 @@ class Testo : CDBTest() {
             val future = InternalFuture<Int>()
             val promise = future.promise()
 
-            myRun(EmptyCoroutineContext) {
+            launchServiceCoroutine(EmptyCoroutineContext) {
                 val value = await(future)
                 x += value
             }
@@ -114,7 +114,7 @@ class Testo : CDBTest() {
             val promise = future.promise()
             promise.complete(1)
 
-            myRun(EmptyCoroutineContext) {
+            launchServiceCoroutine(EmptyCoroutineContext) {
                 val value = await(future)
                 x += value
             }
@@ -133,12 +133,12 @@ class Testo : CDBTest() {
             val future = InternalFuture<Int>()
             val promise = future.promise()
 
-            myRun(EmptyCoroutineContext) {
+            launchServiceCoroutine(EmptyCoroutineContext) {
                 val value = await(future)
                 x += value
             }
 
-            myRun(EmptyCoroutineContext) {
+            launchServiceCoroutine(EmptyCoroutineContext) {
                 val value = await(future)
                 x += value
             }
@@ -166,7 +166,7 @@ class Testo : CDBTest() {
             val promiseB = futureB.promise()
             val promiseC = futureC.promise()
 
-            myRun(EmptyCoroutineContext) {
+            launchServiceCoroutine(EmptyCoroutineContext) {
                 val (a, b, c) = await(futureA, futureB, futureC)
                 x += a
                 x += b
@@ -196,7 +196,7 @@ class Testo : CDBTest() {
             val toRemove = 4 + random.nextInt(128)
 
             var added = 0
-            myRun(EmptyCoroutineContext) {
+            launchServiceCoroutine(EmptyCoroutineContext) {
                 while (true) {
                     queue.queueWriter.addAsync(added)
                     added += 1
@@ -206,7 +206,7 @@ class Testo : CDBTest() {
             assertEquals(queue.capacity, added)
 
             var removed = 0
-            myRun(EmptyCoroutineContext) {
+            launchServiceCoroutine(EmptyCoroutineContext) {
                 while (removed < toRemove) {
                     queue.queueReader.nextAsync()
                     removed += 1
@@ -229,7 +229,7 @@ class Testo : CDBTest() {
             val toAdd = 4 + random.nextInt(128)
 
             var removed = 0
-            myRun(EmptyCoroutineContext) {
+            launchServiceCoroutine(EmptyCoroutineContext) {
                 while (true) {
                     queue.queueReader.nextAsync()
                     removed += 1
@@ -239,7 +239,7 @@ class Testo : CDBTest() {
             assertEquals(0, removed)
 
             var added = 0
-            myRun(EmptyCoroutineContext) {
+            launchServiceCoroutine(EmptyCoroutineContext) {
                 while (added < toAdd) {
                     queue.queueWriter.addAsync(added)
                     added += 1
@@ -265,14 +265,14 @@ class Testo : CDBTest() {
                 val thread = thread(start = false) {
                     val service = IntService()
                     val pre = System.currentTimeMillis()
-                    myRun(TestServiceCoroutineContext(service)) {
+                    launchServiceCoroutine(TestServiceCoroutineContext(service)) {
                         service.run()
                     }
 
                     assertEquals(0, service.processCount)
 
                     var x = 0
-                    myRun(PotatoCoroutineContext()) {
+                    launchServiceCoroutine(PotatoCoroutineContext()) {
                         while (x < workCount) {
 //                                service.get.addAsync(x)
                             x += 1

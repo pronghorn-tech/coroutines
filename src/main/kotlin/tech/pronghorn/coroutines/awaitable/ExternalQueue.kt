@@ -10,15 +10,16 @@ class ExternalQueue<T>(capacity: Int,
     init {
         if (capacity < 4) {
             throw Exception("Queue size must be at least four.")
-        } else if (!isPowerOfTwo(capacity)) {
+        }
+        else if (!isPowerOfTwo(capacity)) {
             throw Exception("Queue sizes must be powers of two.")
         }
     }
 
     private val queue = SpscQueuePlugin.get<T>(capacity)
 
-    val queueReader = ExternalQueueReader<T>(this)
-    val queueWriter = ExternalQueueWriter<T>(this)
+    val queueReader = ExternalQueueReader(this)
+    val queueWriter = ExternalQueueWriter(this)
 
     private var emptyPromise: InternalFuture.InternalPromise<T>? = null
     private val lock = ReentrantLock()
@@ -32,10 +33,12 @@ class ExternalQueue<T>(capacity: Int,
                     wrapper.service.worker.crossThreadCompletePromise(emptyPromise, value)
                     wrapper.emptyPromise = null
                     return true
-                } else {
+                }
+                else {
                     return wrapper.queue.offer(value)
                 }
-            } finally {
+            }
+            finally {
                 wrapper.lock.unlock()
             }
         }
@@ -48,7 +51,8 @@ class ExternalQueue<T>(capacity: Int,
             val result = poll()
             if (result != null) {
                 return result
-            } else {
+            }
+            else {
                 val future = InternalFuture<T>()
                 wrapper.lock.lock()
                 try {
@@ -58,7 +62,8 @@ class ExternalQueue<T>(capacity: Int,
                     }
 
                     wrapper.emptyPromise = future.promise()
-                } finally {
+                }
+                finally {
                     wrapper.lock.unlock()
                 }
 

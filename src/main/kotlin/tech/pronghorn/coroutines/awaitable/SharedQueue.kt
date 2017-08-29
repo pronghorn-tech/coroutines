@@ -2,6 +2,7 @@ package tech.pronghorn.coroutines.awaitable
 
 import mu.KotlinLogging
 import tech.pronghorn.plugins.mpmcQueue.MpmcQueuePlugin
+import tech.pronghorn.util.isPowerOfTwo
 import tech.pronghorn.util.roundToPowerOfTwo
 import java.util.*
 
@@ -12,13 +13,13 @@ class SharedQueue<T>(private val queue: Queue<T>) {
         if (capacity < 4) {
             throw Exception("Queue size must be at least four.")
         }
-        else if (roundToPowerOfTwo(capacity) != capacity) {
+        else if (!isPowerOfTwo(capacity)) {
             throw Exception("Queue sizes must be powers of two.")
         }
     }
 
-    val queueReader = SharedQueueReader<T>(this)
-    val queueWriter = SharedQueueWriter<T>(this)
+    val queueReader = SharedQueueReader(this)
+    val queueWriter = SharedQueueWriter(this)
 
     private var emptyPromise: CoroutineFuture.CoroutinePromise<T>? = null
     private var fullPromise: CoroutineFuture.CoroutinePromise<Unit>? = null

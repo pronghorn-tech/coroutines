@@ -2,7 +2,7 @@ package tech.pronghorn.coroutines.service
 
 import tech.pronghorn.coroutines.awaitable.ServiceCoroutineContext
 import tech.pronghorn.coroutines.core.CoroutineWorker
-import tech.pronghorn.coroutines.core.myRun
+import tech.pronghorn.coroutines.core.launchServiceCoroutine
 import mu.KLogger
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.experimental.Continuation
@@ -39,10 +39,10 @@ abstract class Service {
     }
 
     fun start() {
-        myRun(ServiceCoroutineContext(this)) { runWrapper() }
+        launchServiceCoroutine(ServiceCoroutineContext(this)) { runWrapper() }
     }
 
-    private suspend fun runWrapper(): Unit {
+    private suspend fun runWrapper() {
         try {
             run()
         }

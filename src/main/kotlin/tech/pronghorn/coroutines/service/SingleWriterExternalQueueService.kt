@@ -23,7 +23,7 @@ abstract class SingleWriterExternalQueueService<WorkType>(queueCapacity: Int = 1
         }
     }
 
-    abstract suspend protected fun process(work: WorkType): Unit
+    abstract suspend protected fun process(work: WorkType)
 
     override suspend fun run(): Unit {
         while (isRunning) {
