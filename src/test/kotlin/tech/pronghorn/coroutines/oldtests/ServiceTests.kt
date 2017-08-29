@@ -1,17 +1,5 @@
 package tech.pronghorn.coroutines.oldtests
 
-import tech.pronghorn.coroutines.service.InternalQueueService
-import tech.pronghorn.coroutines.service.Service
-import eventually
-import mu.KotlinLogging
-import org.junit.Test
-import tech.pronghorn.coroutines.core.CoroutineWorker
-import tech.pronghorn.test.CDBTest
-import java.nio.channels.SelectionKey
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
-
 /*
 class _EmptyPipeline : CoroutineWorker() {
     override val logger = KotlinLogging.logger {}
@@ -123,7 +111,7 @@ class _PingPongPipeline(totalWork: Long) : CoroutineWorker() {
     }
 }
 
-class _ServiceTests : CDBTest() {
+class _ServiceTests : PronghornTest() {
     @Test
     fun pipelinesShouldStartAndStop() {
         repeat(0) {
@@ -131,9 +119,9 @@ class _ServiceTests : CDBTest() {
 
             assertTrue(pipeline.isRunning)
             pipeline.start()
-            eventually { assertTrue(pipeline.isRunning) }
+            tech.pronghorn.util.eventually { assertTrue(pipeline.isRunning) }
             pipeline.shutdown()
-            eventually { assertFalse(pipeline.isRunning) }
+            tech.pronghorn.util.eventually { assertFalse(pipeline.isRunning) }
         }
     }
 
@@ -145,7 +133,7 @@ class _ServiceTests : CDBTest() {
 
             val pre = System.currentTimeMillis()
             pipeline.start()
-            eventually { assertEquals(workCount, pipeline.countdownService.workDone) }
+            tech.pronghorn.util.eventually { assertEquals(workCount, pipeline.countdownService.workDone) }
 
             val post = System.currentTimeMillis()
             logger.info("Took ${post - pre}ms for $workCount, ${(workCount / (post - pre)) / 1000.0} million per second")
@@ -160,7 +148,7 @@ class _ServiceTests : CDBTest() {
 
             val pre = System.currentTimeMillis()
             pipeline.start()
-            eventually { assertEquals(workCount, (pipeline.pingService.workDone + pipeline.pongService.workDone)) }
+            tech.pronghorn.util.eventually { assertEquals(workCount, (pipeline.pingService.workDone + pipeline.pongService.workDone)) }
             val post = System.currentTimeMillis()
             logger.info("A Took ${post - pre}ms for $workCount, ${(workCount / (post - pre)) / 1000.0} million per second")
             pipeline.shutdown()

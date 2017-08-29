@@ -3,7 +3,7 @@ package tech.pronghorn.coroutines.oldtests
 import tech.pronghorn.coroutines.awaitable.InternalFuture
 import tech.pronghorn.coroutines.awaitable.await
 import org.junit.Test
-import tech.pronghorn.test.CDBTest
+import tech.pronghorn.util.PronghornTest
 import kotlin.coroutines.experimental.Continuation
 import kotlin.coroutines.experimental.CoroutineContext
 import kotlin.coroutines.experimental.EmptyCoroutineContext
@@ -33,7 +33,7 @@ fun runCoroutine(block: suspend () -> Unit): Unit {
     }
 }
 
-class FutureTests : CDBTest() {
+class FutureTests : PronghornTest() {
     /*
      * future should suspend for get() when incomplete {
      */

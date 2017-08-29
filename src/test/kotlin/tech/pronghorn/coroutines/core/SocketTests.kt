@@ -1,8 +1,7 @@
 package tech.pronghorn.coroutines.core
 
 import org.junit.Test
-import tech.pronghorn.test.CDBTest
-import java.io.FileDescriptor
+import tech.pronghorn.util.PronghornTest
 import java.net.InetSocketAddress
 import java.nio.channels.SelectionKey
 import java.nio.channels.Selector
@@ -16,7 +15,7 @@ import kotlin.reflect.jvm.isAccessible
 import kotlin.reflect.jvm.javaMethod
 
 const val SO_REUSEPORT = 15
-class SocketTests : CDBTest() {
+class SocketTests : PronghornTest() {
     fun setReusePort(serverChannel: ServerSocketChannel): Boolean {
         try {
             val fdProp = serverChannel::class.declaredMemberProperties.find { field -> field.name == "fd" } ?: return false

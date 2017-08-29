@@ -6,7 +6,7 @@ import tech.pronghorn.coroutines.awaitable.InternalQueue
 import tech.pronghorn.coroutines.awaitable.await
 import tech.pronghorn.coroutines.core.ServiceCoroutine
 import tech.pronghorn.coroutines.core.launchServiceCoroutine
-import tech.pronghorn.test.CDBTest
+import tech.pronghorn.util.PronghornTest
 import tech.pronghorn.util.roundToPowerOfTwo
 import kotlin.concurrent.thread
 import kotlin.coroutines.experimental.*
@@ -42,7 +42,7 @@ object TestScheduler {
     }
 }
 
-class Testo : CDBTest() {
+class Testo : PronghornTest() {
     val futureTestCount = 0
     val queueTestCount = 0
     val serviceTestCount = 64

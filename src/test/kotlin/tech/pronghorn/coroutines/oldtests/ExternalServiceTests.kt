@@ -1,11 +1,11 @@
 package tech.pronghorn.coroutines.oldtests
 
-import eventually
+import tech.pronghorn.util.eventually
 import mu.KotlinLogging
 import org.junit.Test
 import tech.pronghorn.coroutines.core.CoroutineWorker
 import tech.pronghorn.coroutines.service.SingleWriterExternalQueueService
-import tech.pronghorn.test.CDBTest
+import tech.pronghorn.util.PronghornTest
 import java.nio.channels.SelectionKey
 import java.util.concurrent.Executors
 import kotlin.test.assertEquals
@@ -40,7 +40,7 @@ class PipelineWithExternalService(totalWork: Long) : CoroutineWorker() {
     override val services = listOf(externalService)
 }
 
-class ExternalServiceTests : CDBTest() {
+class ExternalServiceTests : PronghornTest() {
     @Test
     fun futureEquivalent(){
         repeat(64) {

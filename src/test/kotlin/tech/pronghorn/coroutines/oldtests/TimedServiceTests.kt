@@ -1,9 +1,9 @@
 package tech.pronghorn.coroutines.oldtests
 
 import org.junit.Test
-import tech.pronghorn.test.CDBTest
+import tech.pronghorn.util.PronghornTest
 
-class TimedServiceTests: CDBTest() {
+class TimedServiceTests: PronghornTest() {
 
     @Test
     fun timedServiceTest(){

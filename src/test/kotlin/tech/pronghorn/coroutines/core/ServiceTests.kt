@@ -1,18 +1,12 @@
 package tech.pronghorn.coroutines.core
 
-import eventually
+import tech.pronghorn.util.eventually
 import mu.KotlinLogging
 import org.junit.Test
 import tech.pronghorn.coroutines.service.InternalQueueService
 import tech.pronghorn.coroutines.service.Service
-import tech.pronghorn.test.CDBTest
-import java.net.InetSocketAddress
+import tech.pronghorn.util.PronghornTest
 import java.nio.channels.SelectionKey
-import java.nio.channels.Selector
-import java.nio.channels.ServerSocketChannel
-import java.nio.channels.SocketChannel
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.thread
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -128,7 +122,7 @@ class PingPongPipeline(totalWork: Long) : CoroutineWorker() {
     }
 }
 
-class ServiceTests : CDBTest() {
+class ServiceTests : PronghornTest() {
     @Test
     fun pipelinesShouldStartAndStop(){
         repeat(0) {

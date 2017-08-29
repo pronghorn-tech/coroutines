@@ -2,10 +2,10 @@ package tech.pronghorn.coroutines.oldtests
 
 import org.junit.Test
 import tech.pronghorn.coroutines.awaitable.InternalQueue
-import tech.pronghorn.test.CDBTest
+import tech.pronghorn.util.PronghornTest
 import kotlin.test.assertEquals
 
-class QueueTests : CDBTest() {
+class QueueTests : PronghornTest() {
     /*
      * queue should suspend for next() when empty
      */

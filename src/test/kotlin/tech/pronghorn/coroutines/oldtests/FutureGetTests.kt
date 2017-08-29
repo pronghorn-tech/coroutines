@@ -2,11 +2,11 @@ package tech.pronghorn.coroutines.oldtests
 
 import tech.pronghorn.coroutines.awaitable.CoroutineFuture
 import tech.pronghorn.coroutines.service.SingleWriterExternalQueueService
-import eventually
+import tech.pronghorn.util.eventually
 import mu.KotlinLogging
 import org.junit.Test
 import tech.pronghorn.coroutines.core.CoroutineWorker
-import tech.pronghorn.test.CDBTest
+import tech.pronghorn.util.PronghornTest
 import java.nio.channels.SelectionKey
 import kotlin.test.assertEquals
 
@@ -39,7 +39,7 @@ class PipelineWithFuture(totalWork: Long) : CoroutineWorker() {
     override val services = listOf(futureService)
 }
 
-class FutureGetTests : CDBTest() {
+class FutureGetTests : PronghornTest() {
 
     /*
      * Futures should function properly across threads with get()

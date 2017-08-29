@@ -3,7 +3,7 @@ package tech.pronghorn.coroutines.service
 import java.time.Duration
 
 /**
- * A service that calls process() on an interval.
+ * A service that calls process() on an tech.pronghorn.util.interval.
  *
  * @param interval time desired between calls to process(), actual time may be greater
  */
