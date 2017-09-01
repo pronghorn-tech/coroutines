@@ -1,6 +1,7 @@
 package tech.pronghorn.coroutines.core
 
 import mu.KLogger
+import mu.KotlinLogging
 import tech.pronghorn.coroutines.awaitable.ExternalQueue
 import tech.pronghorn.coroutines.awaitable.InternalFuture
 import tech.pronghorn.coroutines.awaitable.InternalQueue
@@ -32,11 +33,9 @@ data class PromiseCompletionMessage<T>(val promise: InternalFuture.InternalPromi
  */
 @RestrictsSuspension
 abstract class CoroutineWorker {
-    abstract protected val logger: KLogger
+    protected val logger = KotlinLogging.logger(this.javaClass.name)
     protected val selector: Selector = Selector.open()
     val workerID = schedulerID.incrementAndGet()
-
-    fun next() = runQueue.poll()?.resume()
 
     fun offerReady(service: Service) {
         if (!runQueue.offer(service)) {
@@ -302,7 +301,7 @@ abstract class CoroutineWorker {
         return false
     }
 
-    abstract fun processKey(key: SelectionKey): Unit
+    abstract fun processKey(key: SelectionKey)
 
 //    open protected fun finalize() {
 //        if(selector.isOpen){

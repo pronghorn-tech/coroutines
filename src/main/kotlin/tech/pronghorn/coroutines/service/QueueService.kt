@@ -9,7 +9,7 @@ import tech.pronghorn.coroutines.awaitable.QueueWriter
 abstract class QueueService<WorkType> : Service() {
     /**
      * Provides QueueWriters to external users that need to append to this service's queue.
-     * Implementations may limit what has access to a writer.
+     * Implementations may limit access to a writer.
      */
     abstract fun getQueueWriter(): QueueWriter<WorkType>
 

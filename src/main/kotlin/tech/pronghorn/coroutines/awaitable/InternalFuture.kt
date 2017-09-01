@@ -15,8 +15,12 @@ internal enum class FutureState {
     CANCELLED
 }
 
+interface Awaitable<out T> {
+    suspend fun awaitAsync(): T
+}
+
 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
-class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null) {
+class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null): Awaitable<T> {
     private val logger = KotlinLogging.logger {}
     private var result: T? = null
     private var exception: ExecutionException? = null
@@ -99,7 +103,10 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null) {
 //        }
     }
 
-    suspend fun awaitAsync(): T {
+    override suspend fun awaitAsync(): T {
+        if(isDone()){
+            return getValue()
+        }
         return suspendCoroutine<T> { continuation ->
             if (waiter != null) {
                 throw IllegalStateException("Only one waiter is allowed.")
@@ -109,12 +116,8 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null) {
             when (context) {
                 is ServiceCoroutineContext -> {
                     context.service.yield(continuation)
-                    context.service.worker.next()
                 }
                 is ServiceManagedCoroutineContext -> {
-                    // no-op for the moment
-                }
-                is EmptyCoroutineContext -> {
                     // no-op for the moment
                 }
                 else -> {
@@ -142,12 +145,12 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null) {
         return state != FutureState.PROMISED && state != FutureState.INITIALIZED
     }
 
-    private fun getValue(): T? {
+    private fun getValue(): T {
         when (state) {
             FutureState.COMPLETED_SUCCESS -> return result!!
             FutureState.COMPLETED_EXCEPTION -> throw exception!!
             FutureState.CANCELLED -> throw cancelledException
-            else -> return null
+            else -> throw IllegalStateException()
         }
     }
 }

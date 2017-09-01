@@ -1,6 +1,7 @@
 package tech.pronghorn.coroutines.service
 
 import tech.pronghorn.coroutines.awaitable.InternalQueue
+import tech.pronghorn.coroutines.awaitable.await
 
 /**
  * This type of service is strictly for use within a single worker. process() is allowed to be
@@ -18,8 +19,8 @@ abstract class InternalQueueService<WorkType>(queueCapacity: Int = 16384) : Queu
 
     abstract suspend fun process(work: WorkType): Boolean
 
-    override suspend fun run(): Unit {
-        var workItem = queueReader.nextAsync()
+    override suspend fun run() {
+        var workItem = await(queueReader)
         while (isRunning) {
             if (shouldYield()) {
                 yieldAsync()
@@ -35,7 +36,8 @@ abstract class InternalQueueService<WorkType>(queueCapacity: Int = 16384) : Queu
                 }
             }
             else {
-                workItem = queueReader.poll() ?: queueReader.awaitAsync()
+//                workItem = queueReader.poll() ?: queueReader.awaitAsync()
+                workItem = await(queueReader)
             }
         }
     }

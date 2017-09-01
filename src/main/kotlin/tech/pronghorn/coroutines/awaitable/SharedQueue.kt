@@ -68,6 +68,10 @@ class SharedQueue<T>(private val queue: Queue<T>) {
 
         fun size(): Int = wrapper.queue.size
 
+        override suspend fun awaitAsync(): T {
+            TODO()
+        }
+
 //        suspend fun awaitAsync(): T {
 //            val future = InternalFuture<T>()
 //            wrapper.emptyPromise = future.promise()

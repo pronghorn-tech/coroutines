@@ -1,13 +1,8 @@
 package tech.pronghorn.coroutines.awaitable
 
-import mu.KotlinLogging
 import tech.pronghorn.plugins.spscQueue.SpscQueuePlugin
 import tech.pronghorn.util.roundToPowerOfTwo
 import java.util.*
-
-
-
-
 
 class InternalQueue<T>(private val queue: Queue<T>) {
     val capacity = queue.size
@@ -28,7 +23,6 @@ class InternalQueue<T>(private val queue: Queue<T>) {
     private var fullPromise: InternalFuture.InternalPromise<Unit>? = null
 
     class InternalQueueWriter<T>(private val wrapper: InternalQueue<T>) : QueueWriter<T> {
-        val logger = KotlinLogging.logger {}
         override fun offer(value: T): Boolean {
             val emptyPromise = wrapper.emptyPromise
             if (emptyPromise != null) {
@@ -85,17 +79,23 @@ class InternalQueue<T>(private val queue: Queue<T>) {
             }
         }
 
-        suspend fun awaitAsync(): T {
-            val future = InternalFuture<T>()
-            wrapper.emptyPromise = future.promise()
-            return future.awaitAsync()
+        override suspend fun awaitAsync(): T {
+            val result = poll()
+            if (result != null) {
+                return result
+            }
+            else {
+                val future = InternalFuture<T>()
+                wrapper.emptyPromise = future.promise()
+                return future.awaitAsync()
+            }
         }
 
         /*
            NOTE: a poll() followed by an awaitAsync is preferred when performance is important
            to avoid unnecessary suspending function calls
          */
-        suspend fun nextAsync(): T {
+        /*suspend fun nextAsync(): T {
             val result = poll()
             if (result != null) {
                 return result
@@ -103,6 +103,6 @@ class InternalQueue<T>(private val queue: Queue<T>) {
             else {
                 return awaitAsync()
             }
-        }
+        }*/
     }
 }

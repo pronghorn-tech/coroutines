@@ -3,20 +3,55 @@ package tech.pronghorn.coroutines.awaitable
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.experimental.Continuation
+import kotlin.coroutines.experimental.suspendCoroutine
 
 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
-class CoroutineFuture<T> : Future<T> {
+class CoroutineFuture<T>() : Future<T>, Awaitable<T> {
     @Volatile private var state = FutureState.INITIALIZED
 
+    private var waiter: Continuation<T>? = null
     private var result: T? = null
     private var error: Throwable? = null
     private var callback: ((T) -> Unit)? = null
 
-    constructor() {}
-
-    private constructor(result: T) {
+    private constructor(result: T) : this() {
         this.result = result
         state = FutureState.COMPLETED_SUCCESS
+    }
+
+    suspend override fun awaitAsync(): T {
+        if (isDone) {
+            return get()
+        }
+        else {
+            synchronized(this) {
+                if(isDone){
+                    return get()
+                }
+                else {
+                    TODO()
+                    return suspendCoroutine<T> { continuation ->
+                        if (waiter != null) {
+                            throw IllegalStateException("Only one waiter is allowed.")
+                        }
+                        waiter = continuation
+                        val context = continuation.context
+                        when (context) {
+                            is ServiceCoroutineContext -> {
+                                context.service.yield(continuation)
+                            }
+                            is ServiceManagedCoroutineContext -> {
+                                // no-op for the moment
+                            }
+                            else -> {
+                                throw Exception("Illegal context type for awaiting a future.")
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fun promise(): CoroutinePromise<T> {
@@ -54,11 +89,13 @@ class CoroutineFuture<T> : Future<T> {
     fun registerCallback(func: (T) -> Unit) {
         if (isDone) {
             func(result!!)
-        } else {
+        }
+        else {
             synchronized(this) {
                 if (isDone) {
                     func(result!!)
-                } else {
+                }
+                else {
                     callback = func
                 }
             }
@@ -85,14 +122,16 @@ class CoroutineFuture<T> : Future<T> {
                         (this as java.lang.Object).wait()
                     }
                 }
-            } catch (ex: InterruptedException) {
+            }
+            catch (ex: InterruptedException) {
                 // TODO: something here
             }
         }
 
         if (state == FutureState.COMPLETED_SUCCESS) {
             return result!!
-        } else {
+        }
+        else {
             throw ExecutionException(error)
         }
     }

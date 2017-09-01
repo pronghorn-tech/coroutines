@@ -13,12 +13,12 @@ abstract class IntervalService(interval: Duration) : Service() {
     var nextRunTime = lastRunTime + durationAsMillis
         private set
 
-    override suspend fun run(): Unit {
+    override suspend fun run() {
         process()
         lastRunTime = System.currentTimeMillis()
         nextRunTime = lastRunTime + durationAsMillis
         yieldAsync()
     }
 
-    abstract fun process(): Unit
+    abstract fun process()
 }

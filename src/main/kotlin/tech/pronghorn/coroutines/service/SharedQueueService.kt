@@ -12,7 +12,7 @@ abstract class SharedQueueService<WorkType>(queueCapacity: Int = 16384) : QueueS
 
     abstract suspend fun process(work: WorkType): Boolean
 
-    override suspend fun run(): Unit {
+    override suspend fun run() {
         queueReader.poll()
         TODO()
 //        var workItem = queueReader.nextAsync()

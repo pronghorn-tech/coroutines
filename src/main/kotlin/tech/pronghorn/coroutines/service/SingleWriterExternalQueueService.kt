@@ -1,6 +1,7 @@
 package tech.pronghorn.coroutines.service
 
 import tech.pronghorn.coroutines.awaitable.ExternalQueue
+import tech.pronghorn.coroutines.awaitable.await
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -25,9 +26,9 @@ abstract class SingleWriterExternalQueueService<WorkType>(queueCapacity: Int = 1
 
     abstract suspend protected fun process(work: WorkType)
 
-    override suspend fun run(): Unit {
+    override suspend fun run() {
         while (isRunning) {
-            val workItem = queueReader.nextAsync()
+            val workItem = await(queueReader)
             if (shouldYield()) {
                 yieldAsync()
             }

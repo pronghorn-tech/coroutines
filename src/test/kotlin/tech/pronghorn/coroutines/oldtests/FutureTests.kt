@@ -16,7 +16,7 @@ class SimpleCoroutine(override val context: CoroutineContext) : Continuation<Uni
     override fun resumeWithException(exception: Throwable) {}
 }
 
-fun runCoroutine(block: suspend () -> Unit): Unit {
+fun runCoroutine(block: suspend () -> Unit) {
     var exception: Throwable? = null
     val wrappedBlock: suspend () -> Unit = {
         try {

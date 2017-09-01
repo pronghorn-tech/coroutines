@@ -24,21 +24,21 @@ class AwaitResult4<A, B, C, D>(val a: A,
     operator fun component4() = d
 }
 
-suspend fun <T> await(awaitable: InternalFuture<T>): T {
+suspend fun <T> await(awaitable: Awaitable<T>): T {
     return awaitable.awaitAsync()
 }
 
-suspend fun <A, B> await(awaitableA: InternalFuture<A>,
-                         awaitableB: InternalFuture<B>): AwaitResult2<A, B> {
+suspend fun <A, B> await(awaitableA: Awaitable<A>,
+                         awaitableB: Awaitable<B>): AwaitResult2<A, B> {
     return AwaitResult2(
             awaitableA.awaitAsync(),
             awaitableB.awaitAsync()
     )
 }
 
-suspend fun <A, B, C> await(awaitableA: InternalFuture<A>,
-                            awaitableB: InternalFuture<B>,
-                            awaitableC: InternalFuture<C>): AwaitResult3<A, B, C> {
+suspend fun <A, B, C> await(awaitableA: Awaitable<A>,
+                            awaitableB: Awaitable<B>,
+                            awaitableC: Awaitable<C>): AwaitResult3<A, B, C> {
     return AwaitResult3(
             awaitableA.awaitAsync(),
             awaitableB.awaitAsync(),
@@ -46,10 +46,10 @@ suspend fun <A, B, C> await(awaitableA: InternalFuture<A>,
     )
 }
 
-suspend fun <A, B, C, D> await(awaitableA: InternalFuture<A>,
-                               awaitableB: InternalFuture<B>,
-                               awaitableC: InternalFuture<C>,
-                               awaitableD: InternalFuture<D>): AwaitResult4<A, B, C, D> {
+suspend fun <A, B, C, D> await(awaitableA: Awaitable<A>,
+                               awaitableB: Awaitable<B>,
+                               awaitableC: Awaitable<C>,
+                               awaitableD: Awaitable<D>): AwaitResult4<A, B, C, D> {
     return AwaitResult4(
             awaitableA.awaitAsync(),
             awaitableB.awaitAsync(),

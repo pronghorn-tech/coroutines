@@ -208,7 +208,7 @@ class Testo : PronghornTest() {
             var removed = 0
             launchServiceCoroutine(EmptyCoroutineContext) {
                 while (removed < toRemove) {
-                    queue.queueReader.nextAsync()
+                    await(queue.queueReader)
                     removed += 1
                 }
             }
@@ -231,7 +231,7 @@ class Testo : PronghornTest() {
             var removed = 0
             launchServiceCoroutine(EmptyCoroutineContext) {
                 while (true) {
-                    queue.queueReader.nextAsync()
+                    await(queue.queueReader)
                     removed += 1
                 }
             }

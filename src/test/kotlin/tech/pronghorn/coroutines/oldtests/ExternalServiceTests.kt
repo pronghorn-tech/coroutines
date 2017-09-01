@@ -12,8 +12,6 @@ import kotlin.test.assertEquals
 
 class SimpleExternalService(override val worker: CoroutineWorker,
                             val totalWork: Long) : SingleWriterExternalQueueService<Int>() {
-    override val logger = KotlinLogging.logger {}
-
     var workDone = 0L
 
     override fun shouldYield(): Boolean {
@@ -31,8 +29,6 @@ class SimpleExternalService(override val worker: CoroutineWorker,
 }
 
 class PipelineWithExternalService(totalWork: Long) : CoroutineWorker() {
-    override val logger = KotlinLogging.logger {}
-
     override fun processKey(key: SelectionKey) {}
 
     val externalService = SimpleExternalService(this, totalWork)

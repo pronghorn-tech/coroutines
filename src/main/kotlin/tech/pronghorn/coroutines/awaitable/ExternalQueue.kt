@@ -17,12 +17,11 @@ class ExternalQueue<T>(capacity: Int,
     }
 
     private val queue = SpscQueuePlugin.get<T>(capacity)
+    private var emptyPromise: InternalFuture.InternalPromise<T>? = null
+    private val lock = ReentrantLock()
 
     val queueReader = ExternalQueueReader(this)
     val queueWriter = ExternalQueueWriter(this)
-
-    private var emptyPromise: InternalFuture.InternalPromise<T>? = null
-    private val lock = ReentrantLock()
 
     class ExternalQueueWriter<in T>(private val wrapper: ExternalQueue<T>) : QueueWriter<T> {
         override fun offer(value: T): Boolean {
@@ -47,7 +46,7 @@ class ExternalQueue<T>(capacity: Int,
     class ExternalQueueReader<out T>(private val wrapper: ExternalQueue<T>) : QueueReader<T> {
         override fun poll(): T? = wrapper.queue.poll()
 
-        suspend fun nextAsync(): T {
+        override suspend fun awaitAsync(): T {
             val result = poll()
             if (result != null) {
                 return result

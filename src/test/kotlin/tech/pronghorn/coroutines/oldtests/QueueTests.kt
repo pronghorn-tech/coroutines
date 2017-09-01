@@ -2,6 +2,7 @@ package tech.pronghorn.coroutines.oldtests
 
 import org.junit.Test
 import tech.pronghorn.coroutines.awaitable.InternalQueue
+import tech.pronghorn.coroutines.awaitable.await
 import tech.pronghorn.util.PronghornTest
 import kotlin.test.assertEquals
 
@@ -17,7 +18,7 @@ class QueueTests : PronghornTest() {
         var total = 0
 
         runCoroutine {
-            total += queue.queueReader.nextAsync()
+            total += await(queue.queueReader)
         }
 
         assertEquals(0, total)
@@ -49,7 +50,7 @@ class QueueTests : PronghornTest() {
         assertEquals(capacity, added)
 
         runCoroutine {
-            queue.queueReader.nextAsync()
+            await(queue.queueReader)
         }
 
         assertEquals(capacity + 1, added)

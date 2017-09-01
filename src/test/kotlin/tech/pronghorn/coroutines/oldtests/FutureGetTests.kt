@@ -12,8 +12,6 @@ import kotlin.test.assertEquals
 
 class FutureService(override val worker: CoroutineWorker,
                     val totalWork: Long) : SingleWriterExternalQueueService<CoroutineFuture.CoroutinePromise<Int>>() {
-    override val logger = KotlinLogging.logger {}
-
     var workDone = 0L
 
     override fun shouldYield(): Boolean {
@@ -30,8 +28,6 @@ class FutureService(override val worker: CoroutineWorker,
 }
 
 class PipelineWithFuture(totalWork: Long) : CoroutineWorker() {
-    override val logger = KotlinLogging.logger {}
-
     override fun processKey(key: SelectionKey) {}
 
     val futureService = FutureService(this, totalWork)

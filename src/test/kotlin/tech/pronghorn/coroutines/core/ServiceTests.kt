@@ -12,16 +12,12 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class EmptyPipeline : CoroutineWorker() {
-    override val logger = KotlinLogging.logger {}
-
     override fun processKey(key: SelectionKey) { }
 
     override val services: List<Service> = emptyList()
 }
 
 class CountdownPipeline(val totalWork: Long) : CoroutineWorker() {
-    override val logger = KotlinLogging.logger {}
-
     override fun processKey(key: SelectionKey) { }
 
     val countdownService = CountdownService(this, totalWork)
@@ -36,7 +32,6 @@ class CountdownPipeline(val totalWork: Long) : CoroutineWorker() {
 
 class CountdownService(override val worker: CoroutineWorker,
                        val totalWork: Long) : InternalQueueService<Int>() {
-    override val logger = KotlinLogging.logger {}
     var workDone = 0L
 
     override fun shouldYield(): Boolean {
@@ -55,7 +50,6 @@ class CountdownService(override val worker: CoroutineWorker,
 
 class PingService(override val worker: CoroutineWorker,
                   val totalWork: Long) : InternalQueueService<Int>() {
-    override val logger = KotlinLogging.logger {}
     var pongService: PongService? = null
 
     var workDone = 0L
@@ -80,7 +74,6 @@ class PingService(override val worker: CoroutineWorker,
 
 class PongService(override val worker: CoroutineWorker,
                   val totalWork: Long) : InternalQueueService<Int>() {
-    override val logger = KotlinLogging.logger {}
     var pingService: PingService? = null
 
     val pingWriter by lazy(LazyThreadSafetyMode.NONE) {
@@ -103,8 +96,6 @@ class PongService(override val worker: CoroutineWorker,
 }
 
 class PingPongPipeline(totalWork: Long) : CoroutineWorker() {
-    override val logger = KotlinLogging.logger {}
-
     override fun processKey(key: SelectionKey) {}
 
     val pingService = PingService(this, totalWork)
