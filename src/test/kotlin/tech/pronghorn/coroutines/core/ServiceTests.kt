@@ -1,15 +1,13 @@
 package tech.pronghorn.coroutines.core
 
-import tech.pronghorn.util.eventually
-import mu.KotlinLogging
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.RepeatedTest
 import tech.pronghorn.coroutines.service.InternalQueueService
 import tech.pronghorn.coroutines.service.Service
-import tech.pronghorn.util.PronghornTest
+import tech.pronghorn.test.PronghornTest
+import tech.pronghorn.test.eventually
+import tech.pronghorn.test.repeatCount
 import java.nio.channels.SelectionKey
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 class EmptyPipeline : CoroutineWorker() {
     override fun processKey(key: SelectionKey) { }
@@ -114,46 +112,40 @@ class PingPongPipeline(totalWork: Long) : CoroutineWorker() {
 }
 
 class ServiceTests : PronghornTest() {
-    @Test
+    @RepeatedTest(repeatCount)
     fun pipelinesShouldStartAndStop(){
-        repeat(0) {
-            val pipeline = EmptyPipeline()
+        val pipeline = EmptyPipeline()
 
-            assertTrue(pipeline.isRunning)
-            pipeline.start()
-            eventually { assertTrue(pipeline.isRunning) }
-            pipeline.shutdown()
-            eventually { assertFalse(pipeline.isRunning) }
-        }
+        assertFalse(pipeline.isRunning)
+        pipeline.start()
+        eventually { assertTrue(pipeline.isRunning) }
+        pipeline.shutdown()
+        eventually { assertFalse(pipeline.isRunning) }
     }
 
-    @Test
+    @RepeatedTest(repeatCount)
     fun pipelinesShouldRunSuccessfully() {
-        repeat(0) {
-            val workCount = 1000000L
-            val pipeline = CountdownPipeline(workCount)
+        val workCount = 1000000L
+        val pipeline = CountdownPipeline(workCount)
 
-            val pre = System.currentTimeMillis()
-            pipeline.start()
-            eventually { assertEquals(workCount, pipeline.countdownService.workDone) }
+        val pre = System.currentTimeMillis()
+        pipeline.start()
+        eventually { assertEquals(workCount, pipeline.countdownService.workDone) }
 
-            val post = System.currentTimeMillis()
-            logger.info("Took ${post - pre}ms for $workCount, ${(workCount / (post - pre)) / 1000.0} million per second")
-        }
+        val post = System.currentTimeMillis()
+        logger.info { "Took ${post - pre}ms for $workCount, ${(workCount / (post - pre)) / 1000.0} million per second" }
     }
 
-    @Test
+    @RepeatedTest(repeatCount)
     fun pipelinesShouldRescheduleBetweenServices() {
-        repeat(16) {
-            val workCount = 1000000L
-            val pipeline = PingPongPipeline(workCount)
+        val workCount = 1000000L
+        val pipeline = PingPongPipeline(workCount)
 
-            val pre = System.currentTimeMillis()
-            pipeline.start()
-            eventually { assertEquals(workCount, (pipeline.pingService.workDone + pipeline.pongService.workDone)) }
-            val post = System.currentTimeMillis()
-            logger.info("A Took ${post - pre}ms for $workCount, ${(workCount / (post - pre)) / 1000.0} million per second")
-            pipeline.shutdown()
-        }
+        val pre = System.currentTimeMillis()
+        pipeline.start()
+        eventually { assertEquals(workCount, (pipeline.pingService.workDone + pipeline.pongService.workDone)) }
+        val post = System.currentTimeMillis()
+        logger.info { "A Took ${post - pre}ms for $workCount, ${(workCount / (post - pre)) / 1000.0} million per second" }
+        pipeline.shutdown()
     }
 }

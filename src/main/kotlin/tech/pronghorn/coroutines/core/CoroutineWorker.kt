@@ -1,10 +1,10 @@
 package tech.pronghorn.coroutines.core
 
-import mu.KLogger
 import mu.KotlinLogging
 import tech.pronghorn.coroutines.awaitable.ExternalQueue
 import tech.pronghorn.coroutines.awaitable.InternalFuture
 import tech.pronghorn.coroutines.awaitable.InternalQueue
+import tech.pronghorn.coroutines.awaitable.PromiseCompletionMessage
 import tech.pronghorn.coroutines.service.*
 import tech.pronghorn.plugins.mpscQueue.MpscQueuePlugin
 import tech.pronghorn.util.runAllIgnoringExceptions
@@ -17,15 +17,6 @@ import kotlin.concurrent.thread
 import kotlin.coroutines.experimental.RestrictsSuspension
 
 private val schedulerID = AtomicLong(0)
-
-interface InterWorkerMessage
-
-data class PromiseCompletionMessage<T>(val promise: InternalFuture.InternalPromise<T>,
-                                       val value: T) : InterWorkerMessage {
-    fun complete() {
-        promise.complete(value)
-    }
-}
 
 /**
  * Runs process() for each SelectionKey triggered by its Selector
@@ -64,16 +55,16 @@ abstract class CoroutineWorker {
 
     @Volatile private var hasInterWorkerMessages = false
 
-    private val interWorkerMessages = MpscQueuePlugin.get<InterWorkerMessage>(16384)
+    private val interWorkerMessages = MpscQueuePlugin.get<Any>(16384)
 
-    fun sendInterWorkerMessage(message: InterWorkerMessage): Boolean {
+    fun sendInterWorkerMessage(message: Any): Boolean {
         if (interWorkerMessages.offer(message)) {
             hasInterWorkerMessages = true
             selector.wakeup()
             return true
         }
         else {
-            logger.error("Failed to send inter worker message, queue full.")
+            logger.error { "Failed to send inter worker message, queue full." }
             return false
         }
     }
@@ -258,7 +249,7 @@ abstract class CoroutineWorker {
                     while (message != null) {
                         if(!internalHandleMessage(message)) {
                             if(!handleMessage(message)){
-                                logger.warn("Unhandled message : $message")
+                                logger.warn { "Unhandled message : $message" }
                             }
                         }
                         message = interWorkerMessages.poll()
@@ -290,9 +281,9 @@ abstract class CoroutineWorker {
         }
     }
 
-    open fun handleMessage(message: InterWorkerMessage): Boolean = false
+    open fun handleMessage(message: Any): Boolean = false
 
-    private fun internalHandleMessage(message: InterWorkerMessage): Boolean {
+    private fun internalHandleMessage(message: Any): Boolean {
         if (message is PromiseCompletionMessage<*>) {
             message.complete()
             return true
@@ -302,11 +293,4 @@ abstract class CoroutineWorker {
     }
 
     abstract fun processKey(key: SelectionKey)
-
-//    open protected fun finalize() {
-//        if(selector.isOpen){
-//            println("FAILED TO CLOSE SELECTOR ${this.javaClass.simpleName}")
-//            System.exit(1)
-//        }
-//    }
 }

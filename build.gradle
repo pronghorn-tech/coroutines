@@ -1,3 +1,4 @@
+mainClassName = 'tech.pronghorn.coroutines.awaitable.MainKt'
 
 dependencies {
 

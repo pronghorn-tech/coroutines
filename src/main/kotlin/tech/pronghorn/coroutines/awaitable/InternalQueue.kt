@@ -1,7 +1,7 @@
 package tech.pronghorn.coroutines.awaitable
 
 import tech.pronghorn.plugins.spscQueue.SpscQueuePlugin
-import tech.pronghorn.util.roundToPowerOfTwo
+import tech.pronghorn.util.isPowerOfTwo
 import java.util.*
 
 class InternalQueue<T>(private val queue: Queue<T>) {
@@ -11,7 +11,7 @@ class InternalQueue<T>(private val queue: Queue<T>) {
         if (capacity < 4) {
             throw Exception("Queue size must be at least four.")
         }
-        else if (roundToPowerOfTwo(capacity) != capacity) {
+        else if (!isPowerOfTwo(capacity)) {
             throw Exception("Queue sizes must be powers of two.")
         }
     }
@@ -90,19 +90,5 @@ class InternalQueue<T>(private val queue: Queue<T>) {
                 return future.awaitAsync()
             }
         }
-
-        /*
-           NOTE: a poll() followed by an awaitAsync is preferred when performance is important
-           to avoid unnecessary suspending function calls
-         */
-        /*suspend fun nextAsync(): T {
-            val result = poll()
-            if (result != null) {
-                return result
-            }
-            else {
-                return awaitAsync()
-            }
-        }*/
     }
 }

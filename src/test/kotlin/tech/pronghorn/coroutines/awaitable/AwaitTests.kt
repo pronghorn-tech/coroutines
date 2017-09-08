@@ -1,14 +1,15 @@
 package tech.pronghorn.coroutines.awaitable
 
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.RepeatedTest
 import tech.pronghorn.coroutines.core.CoroutineWorker
 import tech.pronghorn.coroutines.service.Service
 import tech.pronghorn.coroutines.service.SingleWriterExternalQueueService
-import tech.pronghorn.util.PronghornTest
-import tech.pronghorn.util.eventually
+import tech.pronghorn.test.PronghornTest
+import tech.pronghorn.test.eventually
+import tech.pronghorn.test.repeatCount
 import java.nio.channels.SelectionKey
 import java.util.*
-import kotlin.test.assertEquals
 
 class AwaitTests : PronghornTest() {
     class AwaitingService(override val worker: AwaitingWorker,
@@ -87,15 +88,34 @@ class AwaitTests : PronghornTest() {
     }
 
     /*
-     * Tests all of the await(...) functions properly await on an internal future utilizing the worker/services above
+     * Tests awaiting for one internal future utilizing the worker/services above
      */
-    @Test
-    fun await() {
-        test {
-            variableAwait(1)
-            variableAwait(2)
-            variableAwait(3)
-            variableAwait(4)
-        }
+    @RepeatedTest(repeatCount)
+    fun await1() {
+        variableAwait(1)
+    }
+
+    /*
+     * Tests awaiting for two internal futures utilizing the worker/services above
+     */
+    @RepeatedTest(repeatCount)
+    fun await2() {
+        variableAwait(2)
+    }
+
+    /*
+     * Tests awaiting for two internal futures utilizing the worker/services above
+     */
+    @RepeatedTest(repeatCount)
+    fun await3() {
+        variableAwait(3)
+    }
+
+    /*
+     * Tests awaiting for two internal futures utilizing the worker/services above
+     */
+    @RepeatedTest(repeatCount)
+    fun await4() {
+        variableAwait(4)
     }
 }

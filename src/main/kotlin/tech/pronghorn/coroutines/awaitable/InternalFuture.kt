@@ -35,10 +35,10 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null): Awaitabl
         fun isCancelled(): Boolean = future.isCancelled()
 
         fun complete(result: T) {
-            future.onComplete?.invoke(result)
             if (future.state != FutureState.PROMISED) {
                 throw IllegalStateException("Attempted to complete future in invalid state : ${future.state}")
             }
+            future.onComplete?.invoke(result)
             future.result = result
             future.state = FutureState.COMPLETED_SUCCESS
             future.wake(result)
@@ -76,9 +76,6 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null): Awaitabl
                 }
             }
         }
-//        else {
-//            throw IllegalStateException("Unexpectedly completing future with no waiter")
-//        }
     }
 
     private fun wake(value: T) {
@@ -93,14 +90,11 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null): Awaitabl
                 }
                 is EmptyCoroutineContext -> waiter.resume(value)
                 else -> {
-                    logger.error("Can't wake context $context")
+                    logger.error { "Can't wake context $context" }
                     System.exit(1)
                 }
             }
         }
-//        else {
-//            throw IllegalStateException("Unexpectedly completing future with no waiter")
-//        }
     }
 
     override suspend fun awaitAsync(): T {

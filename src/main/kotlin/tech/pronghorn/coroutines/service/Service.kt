@@ -34,11 +34,17 @@ abstract class Service {
      */
     open fun onSuspend() = Unit
 
+    open fun onStart() = Unit
+
+    open fun onShutdown() = Unit
+
     fun shutdown() {
+        onShutdown()
         isRunning = false
     }
 
     fun start() {
+        onStart()
         launchServiceCoroutine(ServiceCoroutineContext(this)) { runWrapper() }
     }
 

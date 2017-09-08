@@ -2,6 +2,7 @@ package tech.pronghorn.coroutines.service
 
 import tech.pronghorn.coroutines.awaitable.ExternalQueue
 import tech.pronghorn.coroutines.awaitable.await
+import tech.pronghorn.util.stackTraceToString
 
 abstract class MultiWriterExternalQueueService<WorkType>(queueCapacity: Int = 16384) : QueueService<WorkType>() {
     private val queue = ExternalQueue<WorkType>(queueCapacity, this)
@@ -18,7 +19,13 @@ abstract class MultiWriterExternalQueueService<WorkType>(queueCapacity: Int = 16
             if (shouldYield()) {
                 yieldAsync()
             }
-            process(workItem)
+
+            try {
+                process(workItem)
+            }
+            catch (ex: Exception) {
+                logger.error { "Queue service threw exception: ${ex.stackTraceToString()}" }
+            }
         }
     }
 }

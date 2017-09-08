@@ -2,6 +2,7 @@ package tech.pronghorn.coroutines.service
 
 import tech.pronghorn.coroutines.awaitable.ExternalQueue
 import tech.pronghorn.coroutines.awaitable.await
+import tech.pronghorn.util.stackTraceToString
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -32,12 +33,13 @@ abstract class SingleWriterExternalQueueService<WorkType>(queueCapacity: Int = 1
             if (shouldYield()) {
                 yieldAsync()
             }
-//            val preProcess = System.currentTimeMillis()
-            process(workItem)
-//            val postProcess = System.currentTimeMillis()
-//            if(postProcess - preProcess > 10){
-//                logger.error("Processing in ${this.javaClass.name} took ${postProcess - preProcess} ms")
-//            }
+
+            try {
+                process(workItem)
+            }
+            catch(ex: Exception) {
+                logger.error { "Queue service threw exception: ${ex.stackTraceToString()}" }
+            }
         }
     }
 }

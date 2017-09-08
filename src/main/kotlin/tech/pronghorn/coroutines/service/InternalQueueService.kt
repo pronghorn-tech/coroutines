@@ -2,6 +2,8 @@ package tech.pronghorn.coroutines.service
 
 import tech.pronghorn.coroutines.awaitable.InternalQueue
 import tech.pronghorn.coroutines.awaitable.await
+import tech.pronghorn.util.stackTraceToString
+
 
 /**
  * This type of service is strictly for use within a single worker. process() is allowed to be
@@ -26,17 +28,22 @@ abstract class InternalQueueService<WorkType>(queueCapacity: Int = 16384) : Queu
                 yieldAsync()
             }
 
-            val finished = process(workItem)
+            val finished = try {
+                process(workItem)
+            }
+            catch (ex: Exception) {
+                logger.error { "Queue service threw exception: ${ex.stackTraceToString()}" }
+                true
+            }
 
             if (!finished) {
                 val prevWorkItem = workItem
                 workItem = queueReader.pollAndAdd(workItem)
-                if(workItem == prevWorkItem){
+                if (workItem == prevWorkItem) {
                     yieldAsync()
                 }
             }
             else {
-//                workItem = queueReader.poll() ?: queueReader.awaitAsync()
                 workItem = await(queueReader)
             }
         }
