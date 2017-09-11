@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Because of this, functionality is limited
  */
 abstract class SingleWriterExternalQueueService<WorkType>(queueCapacity: Int = 16384) : QueueService<WorkType>() {
-    private val queue = ExternalQueue<WorkType>(queueCapacity, this)
+    private val queue = ExternalQueue(queueCapacity, this)
 
     private val queueWriterGiven = AtomicBoolean(false)
 

@@ -16,8 +16,8 @@ class InternalQueue<T>(private val queue: Queue<T>) {
         }
     }
 
-    val queueReader = InternalQueueReader<T>(this)
-    val queueWriter = InternalQueueWriter<T>(this)
+    val queueReader = InternalQueueReader(this)
+    val queueWriter = InternalQueueWriter(this)
 
     private var emptyPromise: InternalFuture.InternalPromise<T>? = null
     private var fullPromise: InternalFuture.InternalPromise<Unit>? = null

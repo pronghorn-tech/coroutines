@@ -5,7 +5,7 @@ import tech.pronghorn.coroutines.awaitable.await
 import tech.pronghorn.util.stackTraceToString
 
 abstract class MultiWriterExternalQueueService<WorkType>(queueCapacity: Int = 16384) : QueueService<WorkType>() {
-    private val queue = ExternalQueue<WorkType>(queueCapacity, this)
+    private val queue = ExternalQueue(queueCapacity, this)
 
     protected val queueReader = queue.queueReader
 

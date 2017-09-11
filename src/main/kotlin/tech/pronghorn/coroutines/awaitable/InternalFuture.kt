@@ -1,6 +1,5 @@
 package tech.pronghorn.coroutines.awaitable
 
-import tech.pronghorn.plugins.logging.LoggingPlugin
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutionException
 import kotlin.coroutines.experimental.Continuation
@@ -98,7 +97,7 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null): Awaitabl
         if(isDone()){
             return getValue()
         }
-        return suspendCoroutine<T> { continuation ->
+        return suspendCoroutine { continuation ->
             if (waiter != null) {
                 throw IllegalStateException("Only one waiter is allowed.")
             }
