@@ -2,9 +2,7 @@ package tech.pronghorn.coroutines.awaitable
 
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutionException
-import kotlin.coroutines.experimental.Continuation
-import kotlin.coroutines.experimental.EmptyCoroutineContext
-import kotlin.coroutines.experimental.suspendCoroutine
+import kotlin.coroutines.experimental.*
 
 internal enum class FutureState {
     INITIALIZED,
@@ -19,7 +17,7 @@ interface Awaitable<out T> {
 }
 
 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
-class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null): Awaitable<T> {
+class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null) : Awaitable<T> {
     private var result: T? = null
     private var exception: ExecutionException? = null
     private var state = FutureState.INITIALIZED
@@ -94,7 +92,7 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null): Awaitabl
     }
 
     override suspend fun awaitAsync(): T {
-        if(isDone()){
+        if (isDone()) {
             return getValue()
         }
         return suspendCoroutine { continuation ->

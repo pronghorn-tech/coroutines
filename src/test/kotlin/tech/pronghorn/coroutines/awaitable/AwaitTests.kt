@@ -5,11 +5,10 @@ import org.junit.jupiter.api.RepeatedTest
 import tech.pronghorn.coroutines.core.CoroutineWorker
 import tech.pronghorn.coroutines.service.Service
 import tech.pronghorn.coroutines.service.SingleWriterExternalQueueService
-import tech.pronghorn.test.PronghornTest
-import tech.pronghorn.test.eventually
-import tech.pronghorn.test.repeatCount
+import tech.pronghorn.test.*
 import java.nio.channels.SelectionKey
-import java.util.*
+import java.util.ArrayDeque
+import java.util.Queue
 
 class AwaitTests : PronghornTest() {
     class AwaitingService(override val worker: AwaitingWorker,
@@ -72,7 +71,7 @@ class AwaitTests : PronghornTest() {
             assertEquals(0, worker.done)
 
             var totalValue = 0
-            for(x in 1..futureCount){
+            for (x in 1..futureCount) {
                 val value = random.nextInt(64)
                 totalValue += value
                 worker.externalWriter.offer(value)

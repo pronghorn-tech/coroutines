@@ -1,16 +1,11 @@
 package tech.pronghorn.coroutines.core
 
-import tech.pronghorn.coroutines.awaitable.ExternalQueue
-import tech.pronghorn.coroutines.awaitable.InternalFuture
-import tech.pronghorn.coroutines.awaitable.InternalQueue
-import tech.pronghorn.coroutines.awaitable.PromiseCompletionMessage
+import tech.pronghorn.coroutines.awaitable.*
 import tech.pronghorn.coroutines.service.*
 import tech.pronghorn.plugins.logging.LoggingPlugin
 import tech.pronghorn.plugins.mpscQueue.MpscQueuePlugin
 import tech.pronghorn.util.runAllIgnoringExceptions
-import java.nio.channels.ClosedSelectorException
-import java.nio.channels.SelectionKey
-import java.nio.channels.Selector
+import java.nio.channels.*
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
@@ -238,8 +233,8 @@ abstract class CoroutineWorker {
                 if (hasInterWorkerMessages) {
                     var message = interWorkerMessages.poll()
                     while (message != null) {
-                        if(!internalHandleMessage(message)) {
-                            if(!handleMessage(message)){
+                        if (!internalHandleMessage(message)) {
+                            if (!handleMessage(message)) {
                                 logger.warn { "Unhandled message : $message" }
                             }
                         }

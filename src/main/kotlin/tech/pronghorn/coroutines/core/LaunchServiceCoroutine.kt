@@ -6,7 +6,7 @@ import kotlin.coroutines.experimental.startCoroutine
 
 fun <T> launchServiceCoroutine(context: CoroutineContext,
                                block: suspend () -> T) {
-    if(context is ServiceCoroutineContext) {
+    if (context is ServiceCoroutineContext) {
         val coroutine = ServiceCoroutine<T>(context)
         block.startCoroutine(coroutine)
     }

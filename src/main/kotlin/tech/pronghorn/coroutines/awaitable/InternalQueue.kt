@@ -2,7 +2,7 @@ package tech.pronghorn.coroutines.awaitable
 
 import tech.pronghorn.plugins.spscQueue.SpscQueuePlugin
 import tech.pronghorn.util.isPowerOfTwo
-import java.util.*
+import java.util.Queue
 
 class InternalQueue<T>(private val queue: Queue<T>) {
     val capacity = queue.size

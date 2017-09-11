@@ -37,7 +37,7 @@ abstract class SingleWriterExternalQueueService<WorkType>(queueCapacity: Int = 1
             try {
                 process(workItem)
             }
-            catch(ex: Exception) {
+            catch (ex: Exception) {
                 logger.error { "Queue service threw exception: ${ex.stackTraceToString()}" }
             }
         }

@@ -5,9 +5,7 @@ import tech.pronghorn.coroutines.core.CoroutineWorker
 import tech.pronghorn.coroutines.core.launchServiceCoroutine
 import tech.pronghorn.plugins.logging.LoggingPlugin
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.coroutines.experimental.Continuation
-import kotlin.coroutines.experimental.RestrictsSuspension
-import kotlin.coroutines.experimental.suspendCoroutine
+import kotlin.coroutines.experimental.*
 
 @RestrictsSuspension
 abstract class Service {
@@ -65,7 +63,7 @@ abstract class Service {
     fun resume() {
         val wakeValue = this.wakeValue
         val continuation = this.continuation
-        if(wakeValue == null || continuation == null){
+        if (wakeValue == null || continuation == null) {
             throw IllegalStateException("Unexpected null wake value.")
         }
         else {
@@ -77,10 +75,10 @@ abstract class Service {
 
     fun <T> wake(value: T) {
         logger.debug { "Waking service $serviceID" }
-        if(wakeValue != null){
+        if (wakeValue != null) {
             throw IllegalStateException("Unexpected overwrite of wake value.")
         }
-        else if(continuation == null){
+        else if (continuation == null) {
             throw IllegalStateException("Unable to wake service without a continuation.")
         }
         wakeValue = value

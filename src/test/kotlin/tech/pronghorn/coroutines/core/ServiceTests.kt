@@ -4,19 +4,17 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.RepeatedTest
 import tech.pronghorn.coroutines.service.InternalQueueService
 import tech.pronghorn.coroutines.service.Service
-import tech.pronghorn.test.PronghornTest
-import tech.pronghorn.test.eventually
-import tech.pronghorn.test.repeatCount
+import tech.pronghorn.test.*
 import java.nio.channels.SelectionKey
 
 class EmptyPipeline : CoroutineWorker() {
-    override fun processKey(key: SelectionKey) { }
+    override fun processKey(key: SelectionKey) {}
 
     override val services: List<Service> = emptyList()
 }
 
 class CountdownPipeline(val totalWork: Long) : CoroutineWorker() {
-    override fun processKey(key: SelectionKey) { }
+    override fun processKey(key: SelectionKey) {}
 
     val countdownService = CountdownService(this, totalWork)
 
@@ -107,13 +105,14 @@ class PingPongPipeline(totalWork: Long) : CoroutineWorker() {
     override fun onStart() {
         pingService.pongService = pongService
         pongService.pingService = pingService
-        while (pingService.pongWriter!!.offer(1)) {}
+        while (pingService.pongWriter!!.offer(1)) {
+        }
     }
 }
 
 class ServiceTests : PronghornTest() {
     @RepeatedTest(repeatCount)
-    fun pipelinesShouldStartAndStop(){
+    fun pipelinesShouldStartAndStop() {
         val pipeline = EmptyPipeline()
 
         assertFalse(pipeline.isRunning)
