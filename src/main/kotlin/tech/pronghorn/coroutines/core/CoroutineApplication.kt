@@ -10,7 +10,7 @@ abstract class CoroutineApplication<T : CoroutineWorker>(protected val workerCou
     var isRunning = false
         private set
 
-    abstract fun spawnWorker(): T
+    abstract protected fun spawnWorker(): T
 
     open fun onStart() = Unit
 
