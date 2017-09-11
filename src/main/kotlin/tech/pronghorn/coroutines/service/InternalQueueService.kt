@@ -15,7 +15,6 @@ abstract class InternalQueueService<WorkType>(queueCapacity: Int = 16384) : Queu
     private val queueReader = queue.queueReader
 
     override fun getQueueWriter(): InternalQueue.InternalQueueWriter<WorkType> {
-        assert(worker.isSchedulerThread())
         return queue.queueWriter
     }
 

@@ -1,6 +1,6 @@
 package tech.pronghorn.coroutines.awaitable
 
-import mu.KotlinLogging
+import tech.pronghorn.plugins.logging.LoggingPlugin
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutionException
 import kotlin.coroutines.experimental.Continuation
@@ -21,7 +21,6 @@ interface Awaitable<out T> {
 
 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
 class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null): Awaitable<T> {
-    private val logger = KotlinLogging.logger {}
     private var result: T? = null
     private var exception: ExecutionException? = null
     private var state = FutureState.INITIALIZED
@@ -71,8 +70,7 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null): Awaitabl
                 }
                 is EmptyCoroutineContext -> waiter.resumeWithException(exception)
                 else -> {
-                    println("Can't wake context $context")
-                    System.exit(1)
+                    throw Error("Can't wake context $context")
                 }
             }
         }
@@ -90,8 +88,7 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null): Awaitabl
                 }
                 is EmptyCoroutineContext -> waiter.resume(value)
                 else -> {
-                    logger.error { "Can't wake context $context" }
-                    System.exit(1)
+                    throw Error("Can't wake context $context")
                 }
             }
         }

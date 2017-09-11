@@ -1,11 +1,11 @@
 package tech.pronghorn.coroutines.core
 
-import mu.KotlinLogging
 import tech.pronghorn.coroutines.awaitable.ExternalQueue
 import tech.pronghorn.coroutines.awaitable.InternalFuture
 import tech.pronghorn.coroutines.awaitable.InternalQueue
 import tech.pronghorn.coroutines.awaitable.PromiseCompletionMessage
 import tech.pronghorn.coroutines.service.*
+import tech.pronghorn.plugins.logging.LoggingPlugin
 import tech.pronghorn.plugins.mpscQueue.MpscQueuePlugin
 import tech.pronghorn.util.runAllIgnoringExceptions
 import java.nio.channels.ClosedSelectorException
@@ -24,9 +24,25 @@ private val schedulerID = AtomicLong(0)
  */
 @RestrictsSuspension
 abstract class CoroutineWorker {
-    protected val logger = KotlinLogging.logger(this.javaClass.name)
+    protected val logger = LoggingPlugin.get(javaClass)
     protected val selector: Selector = Selector.open()
     val workerID = schedulerID.incrementAndGet()
+    private val workerThread = thread(start = false, name = "${this::class.simpleName}-$workerID") {
+        startInternal()
+    }
+    abstract val services: List<Service>
+    private val intervalServices: List<IntervalService> by lazy(LazyThreadSafetyMode.NONE) {
+        services.filterIsInstance<IntervalService>()
+    }
+    var isRunning = false
+        private set
+    private var nextTimedServiceTime: Long? = null
+    private val runQueue = MpscQueuePlugin.get<Service>(1024)
+    @Volatile private var hasInterWorkerMessages = false
+    private val interWorkerMessages = MpscQueuePlugin.get<Any>(16384)
+    private val startedLock = ReentrantLock()
+    private val startedCondition = startedLock.newCondition()
+    @Volatile private var started = false
 
     fun offerReady(service: Service) {
         if (!runQueue.offer(service)) {
@@ -34,28 +50,7 @@ abstract class CoroutineWorker {
         }
     }
 
-    private val workerThread = thread(start = false, name = "${this::class.simpleName}-$workerID") {
-        startInternal()
-    }
-
     fun isSchedulerThread() = Thread.currentThread() == workerThread
-
-    abstract val services: List<Service>
-
-    private val intervalServices: List<IntervalService> by lazy(LazyThreadSafetyMode.NONE) {
-        services.filterIsInstance<IntervalService>()
-    }
-
-    var isRunning = false
-        private set
-
-    private var nextTimedServiceTime: Long? = null
-
-    private val runQueue = MpscQueuePlugin.get<Service>(1024)
-
-    @Volatile private var hasInterWorkerMessages = false
-
-    private val interWorkerMessages = MpscQueuePlugin.get<Any>(16384)
 
     fun sendInterWorkerMessage(message: Any): Boolean {
         if (interWorkerMessages.offer(message)) {
@@ -130,10 +125,6 @@ abstract class CoroutineWorker {
 
         run()
     }
-
-    private val startedLock = ReentrantLock()
-    private val startedCondition = startedLock.newCondition()
-    @Volatile private var started = false
 
     fun start() {
         startedLock.lock()

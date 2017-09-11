@@ -1,9 +1,9 @@
 package tech.pronghorn.coroutines.service
 
-import mu.KotlinLogging
 import tech.pronghorn.coroutines.awaitable.ServiceCoroutineContext
 import tech.pronghorn.coroutines.core.CoroutineWorker
 import tech.pronghorn.coroutines.core.launchServiceCoroutine
+import tech.pronghorn.plugins.logging.LoggingPlugin
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.experimental.Continuation
 import kotlin.coroutines.experimental.RestrictsSuspension
@@ -15,7 +15,7 @@ abstract class Service {
         private val serviceID = AtomicLong(0)
     }
 
-    protected val logger = KotlinLogging.logger(this.javaClass.name)
+    protected val logger = LoggingPlugin.get(javaClass)
     protected val serviceID = Service.serviceID.incrementAndGet()
     protected var isRunning = true
     abstract val worker: CoroutineWorker
