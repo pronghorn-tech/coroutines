@@ -1,9 +1,3 @@
-mainClassName = 'tech.pronghorn.coroutines.awaitable.MainKt'
-
-dependencies {
-
-}
-
 //dokka {
 //    moduleName = 'tech.pronghorn.coroutines'
 //    outputFormat = 'javadoc'
