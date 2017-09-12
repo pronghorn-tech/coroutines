@@ -21,14 +21,14 @@ abstract class CoroutineApplication<T : CoroutineWorker>(protected val workerCou
             val worker = spawnWorker()
             workers.add(worker)
         }
-        onStart()
         isRunning = true
+        onStart()
         workers.forEach(CoroutineWorker::start)
     }
 
     fun shutdown() {
-        onShutdown()
         isRunning = false
+        onShutdown()
         try {
             workers.forEach(CoroutineWorker::shutdown)
         }
