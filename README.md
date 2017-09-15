@@ -1,5 +1,5 @@
 # Pronghorn Coroutine Framework
-The Pronghorn Coroutine Framework is a framework written in [Kotlin](https://kotlinlang.org/) intended to simplify development of high performance, IO-driven applications. It is opinionated about its threading model, and currently does not support blocking operations. 
+The Pronghorn Coroutine Framework is [Kotlin](https://kotlinlang.org/) framework for development of high performance, IO-driven applications. It is opinionated about its threading model, and currently does not support blocking operations. 
 
 ## Use Cases
 This framework is best suited for IO-driven applications where high performance is critical. For instance, [a web server](https://github.com/pronghorn/server).
