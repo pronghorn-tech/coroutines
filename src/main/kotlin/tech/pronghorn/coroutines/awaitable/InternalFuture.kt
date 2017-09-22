@@ -30,10 +30,6 @@ internal enum class FutureState {
     CANCELLED
 }
 
-interface Awaitable<out T> {
-    suspend fun awaitAsync(): T
-}
-
 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
 class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null) : Awaitable<T> {
     private var result: T? = null
