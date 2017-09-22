@@ -18,7 +18,7 @@ package tech.pronghorn.coroutines.awaitable
 
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutionException
-import kotlin.coroutines.experimental.*
+import kotlin.coroutines.experimental.Continuation
 import kotlin.coroutines.experimental.intrinsics.COROUTINE_SUSPENDED
 import kotlin.coroutines.experimental.intrinsics.suspendCoroutineOrReturn
 
@@ -39,6 +39,13 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null) : Awaitab
 
     companion object {
         private val cancelledException = CancellationException()
+
+        fun <C> completed(value: C): InternalFuture<C> = InternalFuture(value)
+    }
+
+    internal constructor(value: T) : this() {
+        this.result = value
+        this.state = FutureState.COMPLETED_SUCCESS
     }
 
     class InternalPromise<T>(private val future: InternalFuture<T>) {
@@ -59,6 +66,8 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null) : Awaitab
             future.state = FutureState.COMPLETED_EXCEPTION
             future.wakeExceptionally(exception)
         }
+
+        fun cancel(): Boolean = future.cancel()
     }
 
     fun promise(): InternalPromise<T> {
@@ -74,15 +83,11 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null) : Awaitab
         if (waiter != null) {
             this.waiter = null
             val context = waiter.context
-            when (context) {
-                is ServiceCoroutineContext -> context.service.wake(exception)
-                is ServiceManagedCoroutineContext -> {
-                    waiter.resumeWithException(exception)
-                }
-                is EmptyCoroutineContext -> waiter.resumeWithException(exception)
-                else -> {
-                    throw Error("Can't wake context $context")
-                }
+            if(context is ServiceCoroutineContext) {
+                context.service.wake(exception)
+            }
+            else {
+                waiter.resumeWithException(exception)
             }
         }
     }
@@ -92,15 +97,11 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null) : Awaitab
         if (waiter != null) {
             this.waiter = null
             val context = waiter.context
-            when (context) {
-                is ServiceCoroutineContext -> context.service.wake(value)
-                is ServiceManagedCoroutineContext -> {
-                    waiter.resume(value)
-                }
-                is EmptyCoroutineContext -> waiter.resume(value)
-                else -> {
-                    throw Error("Can't wake context $context")
-                }
+            if(context is ServiceCoroutineContext) {
+                context.service.wake(value)
+            }
+            else {
+                waiter.resume(value)
             }
         }
     }
@@ -115,16 +116,8 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null) : Awaitab
             }
             waiter = continuation
             val context = continuation.context
-            when (context) {
-                is ServiceCoroutineContext -> {
-                    context.service.yield(continuation)
-                }
-                is ServiceManagedCoroutineContext -> {
-                    // no-op for the moment
-                }
-                else -> {
-                    throw Exception("Illegal context type for awaiting a future.")
-                }
+            if (context is ServiceCoroutineContext) {
+                context.service.yield(continuation)
             }
             COROUTINE_SUSPENDED
         }
