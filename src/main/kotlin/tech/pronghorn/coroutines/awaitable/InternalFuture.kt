@@ -19,6 +19,8 @@ package tech.pronghorn.coroutines.awaitable
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutionException
 import kotlin.coroutines.experimental.*
+import kotlin.coroutines.experimental.intrinsics.COROUTINE_SUSPENDED
+import kotlin.coroutines.experimental.intrinsics.suspendCoroutineOrReturn
 
 internal enum class FutureState {
     INITIALIZED,
@@ -111,7 +113,7 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null) : Awaitab
         if (isDone()) {
             return getValue()
         }
-        return suspendCoroutine { continuation ->
+        return suspendCoroutineOrReturn { continuation ->
             if (waiter != null) {
                 throw IllegalStateException("Only one waiter is allowed.")
             }
@@ -128,6 +130,7 @@ class InternalFuture<T>(private val onComplete: ((T) -> Unit)? = null) : Awaitab
                     throw Exception("Illegal context type for awaiting a future.")
                 }
             }
+            COROUTINE_SUSPENDED
         }
     }
 

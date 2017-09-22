@@ -22,6 +22,8 @@ import tech.pronghorn.coroutines.core.launchServiceCoroutine
 import tech.pronghorn.plugins.logging.LoggingPlugin
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.experimental.*
+import kotlin.coroutines.experimental.intrinsics.COROUTINE_SUSPENDED
+import kotlin.coroutines.experimental.intrinsics.suspendCoroutineOrReturn
 
 @RestrictsSuspension
 abstract class Service {
@@ -109,9 +111,10 @@ abstract class Service {
 
     protected suspend fun yieldAsync() {
         logger.debug { "Yielding to worker..." }
-        suspendCoroutine { continuation: Continuation<Any> ->
+        suspendCoroutineOrReturn { continuation: Continuation<Any> ->
             yield(continuation)
             wake(Unit)
+            COROUTINE_SUSPENDED
         }
     }
 }
