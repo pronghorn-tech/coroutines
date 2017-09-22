@@ -299,7 +299,19 @@ abstract class CoroutineWorker {
         return false
     }
 
-    open fun handleMessage(message: Any): Boolean = false
+    open protected fun handleMessage(message: Any): Boolean = false
 
-    open fun processKey(key: SelectionKey) = Unit
+    private fun processKey(key: SelectionKey) {
+        val handler = key.attachment()
+        if(handler is SelectionKeyHandler<*>) {
+            handler.handle(key)
+        }
+        else {
+            throw IllegalStateException("Cannot process non handlers: $handler")
+        }
+    }
+
+    fun <T> registerSelectionKeyHandler(selectable: SelectableChannel,
+                                        handler: SelectionKeyHandler<T>,
+                                        interestOps: Int = 0): SelectionKey = selectable.register(selector, interestOps, handler)
 }
