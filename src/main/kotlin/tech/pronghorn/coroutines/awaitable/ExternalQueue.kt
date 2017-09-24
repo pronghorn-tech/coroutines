@@ -33,7 +33,7 @@ class ExternalQueue<T>(capacity: Int,
     }
 
     private val queue = SpscQueuePlugin.getBounded<T>(capacity)
-    private var emptyPromise: InternalFuture.InternalPromise<T>? = null
+    private val emptyWaiters = SpscQueuePlugin.getUnbounded<InternalFuture.InternalPromise<T>>()
     private val lock = ReentrantLock()
 
     val queueReader = ExternalQueueReader(this)
@@ -43,10 +43,9 @@ class ExternalQueue<T>(capacity: Int,
         override fun offer(value: T): Boolean {
             wrapper.lock.lock()
             try {
-                val emptyPromise = wrapper.emptyPromise
-                if (emptyPromise != null) {
-                    wrapper.service.worker.crossThreadCompletePromise(emptyPromise, value)
-                    wrapper.emptyPromise = null
+                val waiter = wrapper.emptyWaiters.poll()
+                if (waiter != null) {
+                    wrapper.service.worker.crossThreadCompletePromise(waiter, value)
                     return true
                 }
                 else {
@@ -76,13 +75,13 @@ class ExternalQueue<T>(capacity: Int,
                         return check
                     }
 
-                    wrapper.emptyPromise = future.promise()
+                    wrapper.emptyWaiters.add(future.promise())
                 }
                 finally {
                     wrapper.lock.unlock()
                 }
 
-                return future.awaitAsync()
+                return await(future)
             }
         }
     }

@@ -35,15 +35,14 @@ class InternalQueue<T>(private val queue: Queue<T>) {
     val queueReader = InternalQueueReader(this)
     val queueWriter = InternalQueueWriter(this)
 
-    private var emptyPromise: InternalFuture.InternalPromise<T>? = null
-    private var fullPromise: InternalFuture.InternalPromise<Unit>? = null
+    private val emptyWaiters = SpscQueuePlugin.getUnbounded<InternalFuture.InternalPromise<T>>()
+    private val fullWaiters = SpscQueuePlugin.getUnbounded<InternalFuture.InternalPromise<Unit>>()
 
     class InternalQueueWriter<T>(private val wrapper: InternalQueue<T>) : QueueWriter<T> {
         override fun offer(value: T): Boolean {
-            val emptyPromise = wrapper.emptyPromise
+            val emptyPromise = wrapper.emptyWaiters.poll()
             if (emptyPromise != null) {
                 emptyPromise.complete(value)
-                wrapper.emptyPromise = null
                 return true
             }
             else {
@@ -56,8 +55,8 @@ class InternalQueue<T>(private val queue: Queue<T>) {
                 val future = InternalFuture<Unit>({
                     wrapper.queue.add(value)
                 })
-                wrapper.fullPromise = future.promise()
-                future.awaitAsync()
+                wrapper.fullWaiters.add(future.promise())
+                await(future)
             }
         }
     }
@@ -70,11 +69,7 @@ class InternalQueue<T>(private val queue: Queue<T>) {
         override fun poll(): T? {
             val result = wrapper.queue.poll()
             if (result != null) {
-                val fullPromise = wrapper.fullPromise
-                if (fullPromise != null) {
-                    fullPromise.complete(Unit)
-                    wrapper.fullPromise = null
-                }
+                wrapper.fullWaiters.poll()?.complete(Unit)
             }
             return result
         }
@@ -102,8 +97,8 @@ class InternalQueue<T>(private val queue: Queue<T>) {
             }
             else {
                 val future = InternalFuture<T>()
-                wrapper.emptyPromise = future.promise()
-                return future.awaitAsync()
+                wrapper.emptyWaiters.add(future.promise())
+                return await(future)
             }
         }
     }
