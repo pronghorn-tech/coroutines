@@ -32,7 +32,7 @@ class ExternalQueue<T>(capacity: Int,
         }
     }
 
-    private val queue = SpscQueuePlugin.get<T>(capacity)
+    private val queue = SpscQueuePlugin.getBounded<T>(capacity)
     private var emptyPromise: InternalFuture.InternalPromise<T>? = null
     private val lock = ReentrantLock()
 

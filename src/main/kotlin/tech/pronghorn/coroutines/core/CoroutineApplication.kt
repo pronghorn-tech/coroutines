@@ -16,28 +16,27 @@
 
 package tech.pronghorn.coroutines.core
 
-import tech.pronghorn.plugins.concurrentSet.ConcurrentSetPlugin
+import tech.pronghorn.coroutines.service.Service
 import tech.pronghorn.plugins.logging.LoggingPlugin
 
 abstract class CoroutineApplication<T : CoroutineWorker> {
-    abstract protected val workerCount: Int
     protected val logger = LoggingPlugin.get(javaClass)
-    protected val workers = ConcurrentSetPlugin.get<T>()
+    abstract protected val workers: Set<T>
 
     var isRunning = false
         private set
-
-    abstract protected fun spawnWorker(): T
 
     open fun onStart() = Unit
 
     open fun onShutdown() = Unit
 
-    fun start() {
-        for (x in 1..workerCount) {
-            val worker = spawnWorker()
-            workers.add(worker)
+    fun addService(generator: (T) -> Service) {
+        workers.forEach { worker ->
+            worker.addService(generator(worker))
         }
+    }
+
+    fun start() {
         isRunning = true
         onStart()
         workers.forEach(CoroutineWorker::start)

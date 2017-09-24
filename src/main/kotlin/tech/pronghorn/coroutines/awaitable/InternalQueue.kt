@@ -23,7 +23,7 @@ import java.util.Queue
 class InternalQueue<T>(private val queue: Queue<T>) {
     val capacity = queue.size
 
-    constructor(capacity: Int) : this(SpscQueuePlugin.get<T>(capacity)) {
+    constructor(capacity: Int) : this(SpscQueuePlugin.getBounded<T>(capacity)) {
         if (capacity < 4) {
             throw Exception("Queue size must be at least four.")
         }

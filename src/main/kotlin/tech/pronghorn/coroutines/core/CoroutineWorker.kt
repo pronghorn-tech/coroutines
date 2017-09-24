@@ -16,7 +16,10 @@
 
 package tech.pronghorn.coroutines.core
 
-import tech.pronghorn.coroutines.awaitable.*
+import tech.pronghorn.coroutines.awaitable.InternalFuture
+import tech.pronghorn.coroutines.awaitable.QueueWriter
+import tech.pronghorn.coroutines.messages.AddServiceMessage
+import tech.pronghorn.coroutines.messages.PromiseCompletionMessage
 import tech.pronghorn.coroutines.service.*
 import tech.pronghorn.plugins.logging.LoggingPlugin
 import tech.pronghorn.plugins.mpscQueue.MpscQueuePlugin
@@ -27,7 +30,7 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
 import kotlin.coroutines.experimental.RestrictsSuspension
 
-private val schedulerID = AtomicLong(0)
+private val coroutineWorkerIDs = AtomicLong(0)
 
 /**
  * Runs process() for each SelectionKey triggered by its Selector
@@ -36,24 +39,24 @@ private val schedulerID = AtomicLong(0)
 @RestrictsSuspension
 abstract class CoroutineWorker {
     protected val logger = LoggingPlugin.get(javaClass)
+    val workerID = coroutineWorkerIDs.incrementAndGet()
     protected val selector: Selector = Selector.open()
-    val workerID = schedulerID.incrementAndGet()
-    private val workerThread = thread(start = false, name = "${this::class.simpleName}-$workerID") {
+    private val workerThread = thread(start = false, name = "${javaClass.simpleName}-$workerID") {
         startInternal()
     }
-    abstract val services: List<Service>
-    private val intervalServices: List<IntervalService> by lazy(LazyThreadSafetyMode.NONE) {
-        services.filterIsInstance<IntervalService>()
-    }
-    var isRunning = false
-        private set
+    private val runningServices: MutableList<Service> = mutableListOf()
+    private val intervalServices: MutableList<IntervalService> = mutableListOf()
     private var nextTimedServiceTime: Long? = null
-    private val runQueue = MpscQueuePlugin.get<Service>(1024)
-    @Volatile private var hasInterWorkerMessages = false
-    private val interWorkerMessages = MpscQueuePlugin.get<Any>(16384)
+    private val runQueue = MpscQueuePlugin.getUnbounded<Service>()
+    private val interWorkerMessages = MpscQueuePlugin.getUnbounded<Any>()
     private val startedLock = ReentrantLock()
     private val startedCondition = startedLock.newCondition()
+    @Volatile private var hasInterWorkerMessages = false
     @Volatile private var started = false
+    var isRunning = false
+        private set
+
+    abstract protected val services: List<Service>
 
     fun offerReady(service: Service) {
         if (!runQueue.offer(service)) {
@@ -61,7 +64,7 @@ abstract class CoroutineWorker {
         }
     }
 
-    fun isSchedulerThread() = Thread.currentThread() == workerThread
+    fun isWorkerThread() = Thread.currentThread() == workerThread
 
     fun sendInterWorkerMessage(message: Any): Boolean {
         if (interWorkerMessages.offer(message)) {
@@ -75,57 +78,49 @@ abstract class CoroutineWorker {
         }
     }
 
-    @Suppress("UNCHECKED_CAST")
-    fun <T> crossThreadCompletePromise(promise: InternalFuture.InternalPromise<T>,
-                                       value: T) {
+    internal fun <T> crossThreadCompletePromise(promise: InternalFuture.InternalPromise<T>,
+                                                value: T) {
         sendInterWorkerMessage(PromiseCompletionMessage(promise, value))
     }
 
-    inline fun <reified WorkType : Any, reified ServiceType : InternalQueueService<WorkType>>
-            requestInternalWriter(): InternalQueue.InternalQueueWriter<WorkType> {
-        val service = services.find { it is ServiceType }
-
-        if (service != null) {
-            return (service as ServiceType).getQueueWriter()
-        }
-        else {
-            throw Exception("No service of requested type.")
-        }
+    internal fun addService(service: Service) {
+        sendInterWorkerMessage(AddServiceMessage(service))
     }
 
-    inline fun <reified WorkType : Any, reified ServiceType : SingleWriterExternalQueueService<WorkType>>
-            requestSingleExternalWriter(): ExternalQueue.ExternalQueueWriter<WorkType> {
-        val service = services.find { it is ServiceType }
+    fun getRunningServices(): List<Service> = runningServices.toList()
 
-        if (service != null) {
-            return (service as ServiceType).getQueueWriter()
+    inline fun <reified ServiceType : Service> getService(): ServiceType? {
+        getRunningServices().forEach { service ->
+            if(service is ServiceType){
+                return service
+            }
         }
-        else {
-            throw Exception("No service of requested type.")
-        }
+        return null
     }
 
-    inline fun <reified WorkType : Any, reified ServiceType : MultiWriterExternalQueueService<WorkType>>
-            requestMultiExternalWriter(): ExternalQueue.ExternalQueueWriter<WorkType> {
-        val service = services.find { it is ServiceType }
-
-        if (service != null) {
-            return (service as ServiceType).getQueueWriter()
+    inline fun <reified WorkType, reified ServiceType : QueueService<WorkType>> getServiceQueueWriter(): QueueWriter<WorkType>? {
+        getRunningServices().forEach { service ->
+            if(service is ServiceType){
+                return service.getQueueWriter()
+            }
         }
-        else {
-            throw Exception("No service of requested type.")
-        }
+        return null
     }
 
     open protected fun onShutdown() = Unit
 
     open protected fun onStart() = Unit
 
+    private fun startService(service: Service) {
+        service.start()
+        runningServices.add(service)
+    }
+
     private fun startInternal() {
         startedLock.lock()
         try {
             onStart()
-            services.forEach(Service::start)
+            services.forEach { service -> startService(service) }
             isRunning = true
         }
         finally {
@@ -164,7 +159,7 @@ abstract class CoroutineWorker {
         logger.debug { "$workerID Requesting shutdown" }
         runAllIgnoringExceptions(
                 { runQueue.clear() },
-                { services.forEach(Service::shutdown) },
+                { runningServices.forEach(Service::shutdown) },
                 { selector.close() },
                 { workerThread.interrupt() },
                 { workerThread.join() }
@@ -172,7 +167,7 @@ abstract class CoroutineWorker {
 
     }
 
-    fun runService(service: Service) {
+    private fun runService(service: Service) {
         logger.debug { "$workerID Yielding to service: $service" }
         service.isQueued = false
         service.resume()
@@ -256,10 +251,8 @@ abstract class CoroutineWorker {
                 if (hasInterWorkerMessages) {
                     var message = interWorkerMessages.poll()
                     while (message != null) {
-                        if (!internalHandleMessage(message)) {
-                            if (!handleMessage(message)) {
-                                logger.warn { "Unhandled message : $message" }
-                            }
+                        if (!internalHandleMessage(message) && !handleMessage(message)) {
+                            logger.warn { "Unhandled message : $message" }
                         }
                         message = interWorkerMessages.poll()
                     }
@@ -291,19 +284,19 @@ abstract class CoroutineWorker {
     }
 
     private fun internalHandleMessage(message: Any): Boolean {
-        if (message is PromiseCompletionMessage<*>) {
-            message.complete()
-            return true
+        when (message) {
+            is PromiseCompletionMessage<*> -> message.complete()
+            is AddServiceMessage -> startService(message.service)
+            else -> return false
         }
-
-        return false
+        return true
     }
 
     open protected fun handleMessage(message: Any): Boolean = false
 
     private fun processKey(key: SelectionKey) {
         val handler = key.attachment()
-        if(handler is SelectionKeyHandler<*>) {
+        if (handler is SelectionKeyHandler<*>) {
             handler.handle(key)
         }
         else {
