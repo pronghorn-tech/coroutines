@@ -66,16 +66,10 @@ abstract class CoroutineWorker {
 
     fun isWorkerThread() = Thread.currentThread() == workerThread
 
-    fun sendInterWorkerMessage(message: Any): Boolean {
-        if (interWorkerMessages.offer(message)) {
-            hasInterWorkerMessages = true
-            selector.wakeup()
-            return true
-        }
-        else {
-            logger.error { "Failed to send inter worker message, queue full." }
-            return false
-        }
+    fun sendInterWorkerMessage(message: Any) {
+        interWorkerMessages.add(message)
+        hasInterWorkerMessages = true
+        selector.wakeup()
     }
 
     internal fun <T> crossThreadCompletePromise(promise: InternalFuture.InternalPromise<T>,
