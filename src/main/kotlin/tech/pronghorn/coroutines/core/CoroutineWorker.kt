@@ -51,10 +51,32 @@ abstract class CoroutineWorker {
     private val interWorkerMessages = MpscQueuePlugin.getUnbounded<Any>()
     private val startedLock = ReentrantLock()
     private val startedCondition = startedLock.newCondition()
+    private val attachments = mutableMapOf<WorkerAttachmentKey<*>, Any>()
     @Volatile private var hasInterWorkerMessages = false
     @Volatile private var started = false
     var isRunning = false
         private set
+    
+    @Suppress("UNCHECKED_CAST")
+    fun <T : Any> getAttachment(key: WorkerAttachmentKey<T>): T? {
+        val value = attachments[key] ?: return null
+        return value as T
+    }
+
+    fun <T : Any> putAttachment(key: WorkerAttachmentKey<T>,
+                                value: T): Boolean {
+        return attachments.putIfAbsent(key, value) == null
+    }
+
+    fun <T : Any> removeAttachment(key: WorkerAttachmentKey<T>): Boolean {
+        return attachments.remove(key) != null
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    fun <T : Any> getOrPutAttachment(key: WorkerAttachmentKey<T>,
+                                     default: () -> T): T {
+        return attachments.getOrPut(key, default) as T
+    }
 
     abstract protected val services: List<Service>
 

@@ -16,10 +16,4 @@
 
 package tech.pronghorn.coroutines.core
 
-import tech.pronghorn.coroutines.awaitable.ServiceCoroutineContext
-import kotlin.coroutines.experimental.startCoroutine
-
-fun <T> launchServiceCoroutine(context: ServiceCoroutineContext,
-                               block: suspend () -> T) = block.startCoroutine(ServiceCoroutine<T>(context))
-
-fun <T> launchCoroutine(block: suspend () -> T) = block.startCoroutine(GenericCoroutine<T>())
+interface WorkerAttachmentKey<T : Any>
