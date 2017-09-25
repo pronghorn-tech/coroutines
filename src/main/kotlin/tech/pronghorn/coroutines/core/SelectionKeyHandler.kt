@@ -18,14 +18,12 @@ package tech.pronghorn.coroutines.core
 
 import java.nio.channels.SelectionKey
 
-sealed class SelectionKeyHandler<T> {
-    protected abstract val attachment: T
-
-    abstract fun handle(key: SelectionKey)
+interface SelectionKeyHandler<T> {
+    fun handle(key: SelectionKey)
 }
 
-abstract class ReadSelectionKeyHandler<T>() : SelectionKeyHandler<T>() {
-    abstract fun handleRead()
+interface ReadSelectionKeyHandler<T> : SelectionKeyHandler<T> {
+    fun handleRead()
 
     override fun handle(key: SelectionKey) {
         if (key.isReadable) {
@@ -37,7 +35,7 @@ abstract class ReadSelectionKeyHandler<T>() : SelectionKeyHandler<T>() {
     }
 }
 
-abstract class WriteSelectionKeyHandler<T>(override val attachment: T) : SelectionKeyHandler<T>() {
+interface WriteSelectionKeyHandler<T> : SelectionKeyHandler<T> {
     abstract fun handleWrite()
 
     override fun handle(key: SelectionKey) {
@@ -50,7 +48,7 @@ abstract class WriteSelectionKeyHandler<T>(override val attachment: T) : Selecti
     }
 }
 
-abstract class ReadWriteSelectionKeyHandler<T>(override val attachment: T) : SelectionKeyHandler<T>() {
+interface ReadWriteSelectionKeyHandler<T> : SelectionKeyHandler<T> {
     abstract fun handleRead()
 
     abstract fun handleWrite()
@@ -73,7 +71,7 @@ abstract class ReadWriteSelectionKeyHandler<T>(override val attachment: T) : Sel
     }
 }
 
-abstract class ReadWriteConnectSelectionKeyHandler<T>(override val attachment: T) : SelectionKeyHandler<T>() {
+interface ReadWriteConnectSelectionKeyHandler<T> : SelectionKeyHandler<T> {
     abstract fun handleRead()
 
     abstract fun handleWrite()
@@ -103,7 +101,7 @@ abstract class ReadWriteConnectSelectionKeyHandler<T>(override val attachment: T
     }
 }
 
-abstract class ConnectSelectionKeyHandler<T>(override val attachment: T) : SelectionKeyHandler<T>() {
+interface ConnectSelectionKeyHandler<T> : SelectionKeyHandler<T> {
     abstract fun handleConnect()
 
     override fun handle(key: SelectionKey) {
@@ -116,7 +114,7 @@ abstract class ConnectSelectionKeyHandler<T>(override val attachment: T) : Selec
     }
 }
 
-abstract class AcceptSelectionKeyHandler<T>(override val attachment: T) : SelectionKeyHandler<T>() {
+interface AcceptSelectionKeyHandler<T> : SelectionKeyHandler<T> {
     abstract fun handleAccept()
 
     override fun handle(key: SelectionKey) {
