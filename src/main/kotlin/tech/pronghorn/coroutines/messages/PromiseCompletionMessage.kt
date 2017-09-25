@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-package tech.pronghorn.coroutines.awaitable
+package tech.pronghorn.coroutines.messages
 
-data class PromiseCompletionMessage<T>(val promise: InternalFuture.InternalPromise<T>,
-                                       val value: T) {
+import tech.pronghorn.coroutines.awaitable.InternalFuture
+
+class PromiseCompletionMessage<T>(val promise: InternalFuture.InternalPromise<T>,
+                                  val value: T) {
     fun complete() {
         promise.complete(value)
     }

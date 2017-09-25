@@ -24,14 +24,10 @@ import tech.pronghorn.test.*
 import java.nio.channels.SelectionKey
 
 class EmptyPipeline : CoroutineWorker() {
-    override fun processKey(key: SelectionKey) {}
-
     override val services: List<Service> = emptyList()
 }
 
 class CountdownPipeline(val totalWork: Long) : CoroutineWorker() {
-    override fun processKey(key: SelectionKey) {}
-
     val countdownService = CountdownService(this, totalWork)
 
     override val services = listOf(countdownService)
@@ -108,8 +104,6 @@ class PongService(override val worker: CoroutineWorker,
 }
 
 class PingPongPipeline(totalWork: Long) : CoroutineWorker() {
-    override fun processKey(key: SelectionKey) {}
-
     val pingService = PingService(this, totalWork)
     val pongService = PongService(this, totalWork)
 

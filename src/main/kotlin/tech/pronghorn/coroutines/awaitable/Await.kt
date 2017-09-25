@@ -16,6 +16,10 @@
 
 package tech.pronghorn.coroutines.awaitable
 
+interface Awaitable<out T> {
+    suspend fun awaitAsync(): T
+}
+
 class AwaitResult2<A, B>(val a: A,
                          val b: B) {
     operator fun component1() = a

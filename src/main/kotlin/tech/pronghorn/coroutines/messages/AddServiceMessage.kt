@@ -14,12 +14,8 @@
  * limitations under the License.
  */
 
-package tech.pronghorn.coroutines.core
+package tech.pronghorn.coroutines.messages
 
-import tech.pronghorn.coroutines.awaitable.ServiceCoroutineContext
-import kotlin.coroutines.experimental.startCoroutine
+import tech.pronghorn.coroutines.service.Service
 
-fun <T> launchServiceCoroutine(context: ServiceCoroutineContext,
-                               block: suspend () -> T) = block.startCoroutine(ServiceCoroutine<T>(context))
-
-fun <T> launchCoroutine(block: suspend () -> T) = block.startCoroutine(GenericCoroutine<T>())
+class AddServiceMessage(val service: Service)

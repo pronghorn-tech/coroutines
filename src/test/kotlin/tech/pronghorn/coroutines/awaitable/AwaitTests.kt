@@ -75,8 +75,6 @@ class AwaitTests : PronghornTest() {
                 AwaitingService(this, futures),
                 completingService
         )
-
-        override fun processKey(key: SelectionKey) {}
     }
 
     fun variableAwait(futureCount: Int) {
