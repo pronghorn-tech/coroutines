@@ -18,11 +18,11 @@ package tech.pronghorn.coroutines.core
 
 import java.nio.channels.SelectionKey
 
-interface SelectionKeyHandler<T> {
+interface SelectionKeyHandler {
     fun handle(key: SelectionKey)
 }
 
-interface ReadSelectionKeyHandler<T> : SelectionKeyHandler<T> {
+interface ReadSelectionKeyHandler : SelectionKeyHandler {
     fun handleRead()
 
     override fun handle(key: SelectionKey) {
@@ -35,8 +35,8 @@ interface ReadSelectionKeyHandler<T> : SelectionKeyHandler<T> {
     }
 }
 
-interface WriteSelectionKeyHandler<T> : SelectionKeyHandler<T> {
-    abstract fun handleWrite()
+interface WriteSelectionKeyHandler : SelectionKeyHandler {
+    fun handleWrite()
 
     override fun handle(key: SelectionKey) {
         if (key.isWritable) {
@@ -48,10 +48,10 @@ interface WriteSelectionKeyHandler<T> : SelectionKeyHandler<T> {
     }
 }
 
-interface ReadWriteSelectionKeyHandler<T> : SelectionKeyHandler<T> {
-    abstract fun handleRead()
+interface ReadWriteSelectionKeyHandler : SelectionKeyHandler {
+    fun handleRead()
 
-    abstract fun handleWrite()
+    fun handleWrite()
 
     override fun handle(key: SelectionKey) {
         var handled = false
@@ -71,12 +71,12 @@ interface ReadWriteSelectionKeyHandler<T> : SelectionKeyHandler<T> {
     }
 }
 
-interface ReadWriteConnectSelectionKeyHandler<T> : SelectionKeyHandler<T> {
-    abstract fun handleRead()
+interface ReadWriteConnectSelectionKeyHandler : SelectionKeyHandler {
+    fun handleRead()
 
-    abstract fun handleWrite()
+    fun handleWrite()
 
-    abstract fun handleConnect()
+    fun handleConnect()
 
     override fun handle(key: SelectionKey) {
         var handled = false
@@ -101,8 +101,8 @@ interface ReadWriteConnectSelectionKeyHandler<T> : SelectionKeyHandler<T> {
     }
 }
 
-interface ConnectSelectionKeyHandler<T> : SelectionKeyHandler<T> {
-    abstract fun handleConnect()
+interface ConnectSelectionKeyHandler : SelectionKeyHandler {
+    fun handleConnect()
 
     override fun handle(key: SelectionKey) {
         if (key.isConnectable) {
@@ -114,8 +114,8 @@ interface ConnectSelectionKeyHandler<T> : SelectionKeyHandler<T> {
     }
 }
 
-interface AcceptSelectionKeyHandler<T> : SelectionKeyHandler<T> {
-    abstract fun handleAccept()
+interface AcceptSelectionKeyHandler : SelectionKeyHandler {
+    fun handleAccept()
 
     override fun handle(key: SelectionKey) {
         if (key.isAcceptable) {

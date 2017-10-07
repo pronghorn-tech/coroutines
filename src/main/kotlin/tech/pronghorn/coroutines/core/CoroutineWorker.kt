@@ -21,16 +21,17 @@ import tech.pronghorn.coroutines.awaitable.QueueWriter
 import tech.pronghorn.coroutines.messages.AddServiceMessage
 import tech.pronghorn.coroutines.messages.PromiseCompletionMessage
 import tech.pronghorn.coroutines.service.*
+import tech.pronghorn.plugins.internalQueue.InternalQueuePlugin
 import tech.pronghorn.plugins.logging.LoggingPlugin
 import tech.pronghorn.plugins.mpscQueue.MpscQueuePlugin
-import tech.pronghorn.util.runAllIgnoringExceptions
+import tech.pronghorn.util.ignoreExceptions
 import java.nio.channels.*
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
 import kotlin.coroutines.experimental.RestrictsSuspension
 
-private val coroutineWorkerIDs = AtomicLong(0)
+private val workerIDs = AtomicLong(0)
 
 /**
  * Runs process() for each SelectionKey triggered by its Selector
@@ -38,8 +39,8 @@ private val coroutineWorkerIDs = AtomicLong(0)
  */
 @RestrictsSuspension
 abstract class CoroutineWorker {
+    val workerID = workerIDs.incrementAndGet()
     protected val logger = LoggingPlugin.get(javaClass)
-    val workerID = coroutineWorkerIDs.incrementAndGet()
     protected val selector: Selector = Selector.open()
     private val workerThread = thread(start = false, name = "${javaClass.simpleName}-$workerID") {
         startInternal()
@@ -49,6 +50,7 @@ abstract class CoroutineWorker {
     private var nextTimedServiceTime: Long? = null
     private val runQueue = MpscQueuePlugin.getUnbounded<Service>()
     private val interWorkerMessages = MpscQueuePlugin.getUnbounded<Any>()
+    private val shutdownMethods = InternalQueuePlugin.getUnbounded<() -> Unit>()
     private val startedLock = ReentrantLock()
     private val startedCondition = startedLock.newCondition()
     private val attachments = mutableMapOf<WorkerAttachmentKey<*>, Any>()
@@ -56,7 +58,9 @@ abstract class CoroutineWorker {
     @Volatile private var started = false
     var isRunning = false
         private set
-    
+
+    abstract protected val services: List<Service>
+
     @Suppress("UNCHECKED_CAST")
     fun <T : Any> getAttachment(key: WorkerAttachmentKey<T>): T? {
         val value = attachments[key] ?: return null
@@ -78,9 +82,11 @@ abstract class CoroutineWorker {
         return attachments.getOrPut(key, default) as T
     }
 
-    abstract protected val services: List<Service>
+    fun registerShutdownMethod(method: () -> Unit) {
+        shutdownMethods.add(method)
+    }
 
-    fun offerReady(service: Service) {
+    internal fun offerReady(service: Service) {
         if (!runQueue.offer(service)) {
             throw Exception("Unexpectedly failed to enqueue service.")
         }
@@ -100,14 +106,19 @@ abstract class CoroutineWorker {
     }
 
     internal fun addService(service: Service) {
-        sendInterWorkerMessage(AddServiceMessage(service))
+        if (isWorkerThread()) {
+            startService(service)
+        }
+        else {
+            sendInterWorkerMessage(AddServiceMessage(service))
+        }
     }
 
     fun getRunningServices(): List<Service> = runningServices.toList()
 
     inline fun <reified ServiceType : Service> getService(): ServiceType? {
         getRunningServices().forEach { service ->
-            if(service is ServiceType){
+            if (service is ServiceType) {
                 return service
             }
         }
@@ -116,7 +127,7 @@ abstract class CoroutineWorker {
 
     inline fun <reified WorkType, reified ServiceType : QueueService<WorkType>> getServiceQueueWriter(): QueueWriter<WorkType>? {
         getRunningServices().forEach { service ->
-            if(service is ServiceType){
+            if (service is ServiceType) {
                 return service.getQueueWriter()
             }
         }
@@ -162,6 +173,7 @@ abstract class CoroutineWorker {
     }
 
     private fun shutdownInternal() {
+        shutdownMethods.forEach { it() }
         onShutdown()
         try {
             selector.close()
@@ -171,9 +183,9 @@ abstract class CoroutineWorker {
         }
     }
 
-    fun shutdown() {
+    internal fun shutdown() {
         logger.debug { "$workerID Requesting shutdown" }
-        runAllIgnoringExceptions(
+        ignoreExceptions(
                 { runQueue.clear() },
                 { runningServices.forEach(Service::shutdown) },
                 { selector.close() },
@@ -184,7 +196,6 @@ abstract class CoroutineWorker {
     }
 
     private fun runService(service: Service) {
-        logger.debug { "$workerID Yielding to service: $service" }
         service.isQueued = false
         service.resume()
     }
@@ -243,17 +254,9 @@ abstract class CoroutineWorker {
 
                     when {
                         wakeTime == null -> selector.select()
-                        wakeTime <= 0L -> selector.selectNow()
-                        else -> {
-                            if (wakeTime < 2) {
-                                selector.selectNow()
-                            }
-                            else {
-                                selector.select(wakeTime - 1)
-                            }
-                        }
+                        wakeTime < 2 -> selector.selectNow()
+                        else -> selector.select(wakeTime - 1)
                     }
-                    logger.debug { "$workerID Selector has woken up." }
                 }
 
                 runTimedServices()
@@ -312,7 +315,7 @@ abstract class CoroutineWorker {
 
     private fun processKey(key: SelectionKey) {
         val handler = key.attachment()
-        if (handler is SelectionKeyHandler<*>) {
+        if (handler is SelectionKeyHandler) {
             handler.handle(key)
         }
         else {
@@ -320,7 +323,7 @@ abstract class CoroutineWorker {
         }
     }
 
-    fun <T> registerSelectionKeyHandler(selectable: SelectableChannel,
-                                        handler: SelectionKeyHandler<T>,
-                                        interestOps: Int = 0): SelectionKey = selectable.register(selector, interestOps, handler)
+    fun registerSelectionKeyHandler(selectable: SelectableChannel,
+                                    handler: SelectionKeyHandler,
+                                    interestOps: Int = 0): SelectionKey = selectable.register(selector, interestOps, handler)
 }

@@ -25,14 +25,12 @@ import kotlin.coroutines.experimental.*
 import kotlin.coroutines.experimental.intrinsics.COROUTINE_SUSPENDED
 import kotlin.coroutines.experimental.intrinsics.suspendCoroutineOrReturn
 
+private val serviceIDs = AtomicLong(0)
+
 @RestrictsSuspension
 abstract class Service {
-    companion object {
-        private val serviceID = AtomicLong(0)
-    }
-
     protected val logger = LoggingPlugin.get(javaClass)
-    protected val serviceID = Service.serviceID.incrementAndGet()
+    protected val serviceID = serviceIDs.incrementAndGet()
     protected var isRunning = true
     abstract val worker: CoroutineWorker
     private var wakeValue: Any? = null
