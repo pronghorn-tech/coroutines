@@ -16,10 +16,11 @@
 
 package tech.pronghorn.coroutines.core
 
-import tech.pronghorn.coroutines.awaitable.ServiceCoroutineContext
-import kotlin.coroutines.experimental.startCoroutine
+import kotlin.coroutines.experimental.*
 
-fun <T> launchServiceCoroutine(context: ServiceCoroutineContext,
-                               block: suspend () -> T) = block.startCoroutine(ServiceCoroutine<T>(context))
+class PronghornCoroutine<T>(override val context: PronghornCoroutineContext) : Continuation<T> {
+    override fun resume(value: T) {}
 
-fun <T> launchCoroutine(block: suspend () -> T) = block.startCoroutine(GenericCoroutine<T>())
+    override fun resumeWithException(exception: Throwable) {}
+}
+

@@ -16,21 +16,21 @@
 
 package tech.pronghorn.coroutines.service
 
-import tech.pronghorn.coroutines.awaitable.QueueWriter
+import tech.pronghorn.coroutines.awaitable.*
+import tech.pronghorn.coroutines.awaitable.future.CoroutineFuture
+import tech.pronghorn.coroutines.awaitable.future.CoroutinePromise
 
-/**
- * Calls process() for each work item in the queue.
- * Actual implementations may or not have mechanisms for cross thread access.
- */
-abstract class QueueService<WorkType> : Service() {
-    /**
-     * Provides QueueWriters to external users that need to append to this service's queue.
-     * Implementations may limit access to a writer.
-     */
-    abstract fun getQueueWriter(): QueueWriter<WorkType>
+abstract class InternalSleepableService : Service() {
+    private var sleepPromise: CoroutinePromise<Unit>? = null
 
-    /**
-     * Allows a service to decide when yielding to the worker happens by returning true when yielding is desired.
-     */
-    open fun shouldYield(): Boolean = false
+    suspend fun sleepAsync() {
+        val future = CoroutineFuture<Unit>()
+        sleepPromise = future.promise()
+        await(future)
+    }
+
+    fun wake() {
+        sleepPromise?.complete(Unit)
+        sleepPromise = null
+    }
 }

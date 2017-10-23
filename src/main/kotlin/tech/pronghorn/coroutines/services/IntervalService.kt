@@ -39,7 +39,7 @@ abstract class IntervalService(val interval: Duration,
         private set
 
     override suspend fun run() {
-        while(isRunning) {
+        while(isRunning()) {
             sleepAsync()
             val now = System.currentTimeMillis()
             process()

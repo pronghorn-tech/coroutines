@@ -16,21 +16,21 @@
 
 package tech.pronghorn.coroutines.service
 
-import tech.pronghorn.coroutines.awaitable.ExternalQueue
-import tech.pronghorn.coroutines.awaitable.await
+import tech.pronghorn.coroutines.awaitable.*
+import tech.pronghorn.coroutines.awaitable.queue.*
 import tech.pronghorn.util.stackTraceToString
 
-abstract class MultiWriterExternalQueueService<WorkType>(queueCapacity: Int = 16384) : QueueService<WorkType>() {
+abstract class ExternalQueueService<WorkType>(queueCapacity: Int = 16384) : QueueService<WorkType>() {
     private val queue = ExternalQueue(queueCapacity, this)
 
-    protected val queueReader = queue.queueReader
+    protected val queueReader: ExternalQueue.Reader<WorkType> = queue.queueReader
 
-    override fun getQueueWriter(): ExternalQueue.ExternalQueueWriter<WorkType> = queue.queueWriter
+    fun getQueueWriter(): ExternalQueue.Writer<WorkType> = queue.queueWriter
 
     abstract suspend fun process(work: WorkType)
 
     override suspend fun run() {
-        while (isRunning) {
+        while (isRunning()) {
             val workItem = await(queueReader)
             if (shouldYield()) {
                 yieldAsync()

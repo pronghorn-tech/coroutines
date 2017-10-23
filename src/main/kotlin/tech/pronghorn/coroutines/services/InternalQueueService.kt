@@ -16,8 +16,8 @@
 
 package tech.pronghorn.coroutines.service
 
-import tech.pronghorn.coroutines.awaitable.InternalQueue
 import tech.pronghorn.coroutines.awaitable.await
+import tech.pronghorn.coroutines.awaitable.queue.InternalQueue
 import tech.pronghorn.util.stackTraceToString
 
 
@@ -30,15 +30,13 @@ abstract class InternalQueueService<WorkType>(queueCapacity: Int = 16384) : Queu
     private val queue = InternalQueue<WorkType>(queueCapacity)
     private val queueReader = queue.queueReader
 
-    override fun getQueueWriter(): InternalQueue.InternalQueueWriter<WorkType> {
-        return queue.queueWriter
-    }
+    fun getQueueWriter(): InternalQueue.Writer<WorkType> = queue.queueWriter
 
     abstract suspend fun process(work: WorkType): Boolean
 
     override suspend fun run() {
         var workItem = await(queueReader)
-        while (isRunning) {
+        while (isRunning()) {
             if (shouldYield()) {
                 yieldAsync()
             }
