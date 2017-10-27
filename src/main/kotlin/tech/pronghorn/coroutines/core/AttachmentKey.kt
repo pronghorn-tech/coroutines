@@ -16,4 +16,4 @@
 
 package tech.pronghorn.coroutines.core
 
-interface WorkerAttachmentKey<T : Any>
+public interface AttachmentKey<T : Any>

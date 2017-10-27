@@ -18,7 +18,7 @@ package tech.pronghorn.coroutines.core
 
 import kotlin.coroutines.experimental.*
 
-class PronghornCoroutine<T>(override val context: PronghornCoroutineContext) : Continuation<T> {
+public class PronghornCoroutine<T>(override val context: PronghornCoroutineContext) : Continuation<T> {
     override fun resume(value: T) {}
 
     override fun resumeWithException(exception: Throwable) {}

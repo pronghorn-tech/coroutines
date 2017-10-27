@@ -16,49 +16,43 @@
 
 package tech.pronghorn.coroutines.awaitable
 
-interface Awaitable<out T> {
-    suspend fun awaitAsync(): T
+public class AwaitResult2<A, B>(private val a: A,
+                                private val b: B) {
+    public operator fun component1() = a
+    public operator fun component2() = b
 }
 
-class AwaitResult2<A, B>(val a: A,
-                         val b: B) {
-    operator fun component1() = a
-    operator fun component2() = b
+public class AwaitResult3<A, B, C>(private val a: A,
+                                   private val b: B,
+                                   private val c: C) {
+    public operator fun component1() = a
+    public operator fun component2() = b
+    public operator fun component3() = c
 }
 
-class AwaitResult3<A, B, C>(val a: A,
-                            val b: B,
-                            val c: C) {
-    operator fun component1() = a
-    operator fun component2() = b
-    operator fun component3() = c
+public class AwaitResult4<A, B, C, D>(private val a: A,
+                                      private val b: B,
+                                      private val c: C,
+                                      private val d: D) {
+    public operator fun component1() = a
+    public operator fun component2() = b
+    public operator fun component3() = c
+    public operator fun component4() = d
 }
 
-class AwaitResult4<A, B, C, D>(val a: A,
-                               val b: B,
-                               val c: C,
-                               val d: D) {
-    operator fun component1() = a
-    operator fun component2() = b
-    operator fun component3() = c
-    operator fun component4() = d
-}
+public suspend fun <T> await(awaitable: Awaitable<T>): T = awaitable.awaitAsync()
 
-suspend fun <T> await(awaitable: Awaitable<T>): T {
-    return awaitable.awaitAsync()
-}
-
-suspend fun <A, B> await(awaitableA: Awaitable<A>,
-                         awaitableB: Awaitable<B>): AwaitResult2<A, B> {
+public suspend fun <A, B> await(awaitableA: Awaitable<A>,
+                                awaitableB: Awaitable<B>): AwaitResult2<A, B> {
     return AwaitResult2(
             awaitableA.awaitAsync(),
             awaitableB.awaitAsync()
     )
 }
 
-suspend fun <A, B, C> await(awaitableA: Awaitable<A>,
-                            awaitableB: Awaitable<B>,
-                            awaitableC: Awaitable<C>): AwaitResult3<A, B, C> {
+public suspend fun <A, B, C> await(awaitableA: Awaitable<A>,
+                                   awaitableB: Awaitable<B>,
+                                   awaitableC: Awaitable<C>): AwaitResult3<A, B, C> {
     return AwaitResult3(
             awaitableA.awaitAsync(),
             awaitableB.awaitAsync(),
@@ -66,10 +60,10 @@ suspend fun <A, B, C> await(awaitableA: Awaitable<A>,
     )
 }
 
-suspend fun <A, B, C, D> await(awaitableA: Awaitable<A>,
-                               awaitableB: Awaitable<B>,
-                               awaitableC: Awaitable<C>,
-                               awaitableD: Awaitable<D>): AwaitResult4<A, B, C, D> {
+public suspend fun <A, B, C, D> await(awaitableA: Awaitable<A>,
+                                      awaitableB: Awaitable<B>,
+                                      awaitableC: Awaitable<C>,
+                                      awaitableD: Awaitable<D>): AwaitResult4<A, B, C, D> {
     return AwaitResult4(
             awaitableA.awaitAsync(),
             awaitableB.awaitAsync(),
