@@ -14,12 +14,65 @@
  * limitations under the License.
  */
 
-package tech.pronghorn.coroutines.awaitable
+package tech.pronghorn.coroutines.core
 
-import tech.pronghorn.coroutines.service.Service
-import kotlin.coroutines.experimental.AbstractCoroutineContextElement
-import kotlin.coroutines.experimental.CoroutineContext
+import kotlin.coroutines.experimental.*
 
-class ServiceCoroutineContext(val service: Service) : AbstractCoroutineContextElement(ServiceCoroutineContext) {
+public sealed class PronghornCoroutineContext(key: CoroutineContext.Key<*>) : AbstractCoroutineContextElement(key) {
+    private var wakeValue: Any? = null
+    private var isWakeValueException = false
+
+    @PublishedApi internal open fun onSuspend() = Unit
+
+    internal open fun onResume() = Unit
+
+    private fun validateWakeable() {
+        if (wakeValue != null) {
+            throw IllegalStateException("Unexpected overwrite of wake value.")
+        }
+    }
+
+    public fun wakeExceptionally(continuation: Continuation<*>,
+                                 throwable: Throwable) {
+        if (DEBUG) { validateWakeable() }
+        isWakeValueException = true
+        wakeValue = throwable
+        worker.resumeContinuation(continuation)
+    }
+
+    public fun <T> wake(continuation: Continuation<T>,
+                        value: T) {
+        if (DEBUG) { validateWakeable() }
+        wakeValue = value
+        worker.resumeContinuation(continuation)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    fun <T> resume(continuation: Continuation<T>) {
+        val wakeValue = this.wakeValue
+        this.wakeValue = null
+        if (isWakeValueException) {
+            isWakeValueException = false
+            continuation.resumeWithException(wakeValue as Throwable)
+        }
+        else {
+            continuation.resume(wakeValue as T)
+        }
+    }
+
+    public abstract val worker: CoroutineWorker
+}
+
+public class WorkerCoroutineContext(override val worker: CoroutineWorker) : PronghornCoroutineContext(WorkerCoroutineContext) {
+    companion object Key : CoroutineContext.Key<WorkerCoroutineContext>
+}
+
+public class ServiceCoroutineContext(val service: Service) : PronghornCoroutineContext(ServiceCoroutineContext) {
+    override val worker = service.worker
+
+    override fun onSuspend() = service.internalOnSuspend()
+
+    override fun onResume() = service.internalOnResume()
+
     companion object Key : CoroutineContext.Key<ServiceCoroutineContext>
 }
