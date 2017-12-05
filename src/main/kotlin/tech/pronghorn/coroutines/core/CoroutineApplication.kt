@@ -16,40 +16,36 @@
 
 package tech.pronghorn.coroutines.core
 
-import tech.pronghorn.coroutines.service.Service
 import tech.pronghorn.plugins.logging.LoggingPlugin
 
-abstract class CoroutineApplication<T : CoroutineWorker> {
+abstract class CoroutineApplication : Lifecycle() {
     protected val logger = LoggingPlugin.get(javaClass)
-    abstract protected val workers: Set<T>
+    protected abstract val workers: Set<CoroutineWorker>
 
-    var isRunning = false
-        private set
-
-    open fun onStart() = Unit
-
-    open fun onShutdown() = Unit
-
-    fun addService(generator: (T) -> Service) {
+    public fun addService(generator: (CoroutineWorker) -> Service) {
         workers.forEach { worker ->
             worker.addService(generator(worker))
         }
     }
 
-    fun start() {
-        isRunning = true
-        onStart()
+    public fun start() = lifecycleStart()
+
+    public fun shutdown() = lifecycleShutdown()
+
+    final override fun onLifecycleStart() {
         workers.forEach(CoroutineWorker::start)
     }
 
-    fun shutdown() {
-        isRunning = false
-        onShutdown()
-        try {
-            workers.forEach(CoroutineWorker::shutdown)
-        }
-        catch (ex: Exception) {
-            ex.printStackTrace()
+    final override fun onLifecycleShutdown() {
+        workers.forEach { worker ->
+            try {
+                if (worker.isRunning()) {
+                    worker.shutdown()
+                }
+            }
+            catch (ex: Exception) {
+                ex.printStackTrace()
+            }
         }
     }
 }
