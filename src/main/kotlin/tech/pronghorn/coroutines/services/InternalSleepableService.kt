@@ -14,23 +14,45 @@
  * limitations under the License.
  */
 
-package tech.pronghorn.coroutines.service
+package tech.pronghorn.coroutines.services
 
-import tech.pronghorn.coroutines.awaitable.*
-import tech.pronghorn.coroutines.awaitable.future.CoroutineFuture
-import tech.pronghorn.coroutines.awaitable.future.CoroutinePromise
+import tech.pronghorn.coroutines.core.PronghornCoroutineContext
+import tech.pronghorn.coroutines.core.suspendCoroutine
+import java.time.Duration
+import kotlin.coroutines.experimental.Continuation
+import kotlin.coroutines.experimental.intrinsics.COROUTINE_SUSPENDED
 
-abstract class InternalSleepableService : Service() {
-    private var sleepPromise: CoroutinePromise<Unit>? = null
+public abstract class InternalSleepableService : TimedService() {
+    private var continuation: Continuation<Unit>? = null
+    private var nextRunTime: Long = NO_NEXT_RUN_TIME
 
-    suspend fun sleepAsync() {
-        val future = CoroutineFuture<Unit>()
-        sleepPromise = future.promise()
-        await(future)
+    override fun getNextRunTime(): Long = nextRunTime
+
+    public suspend fun sleepNanosAsync(nanos: Long) {
+        nextRunTime = System.nanoTime() + nanos
+        suspendCoroutine { continuation: Continuation<Unit> ->
+            this.continuation = continuation
+            COROUTINE_SUSPENDED
+        }
     }
 
-    fun wake() {
-        sleepPromise?.complete(Unit)
-        sleepPromise = null
+    public suspend fun sleepDurationAsync(duration: Duration) = sleepNanosAsync(duration.toNanos())
+
+    public suspend fun sleepAsync() {
+        suspendCoroutine { continuation: Continuation<Unit> ->
+            this.continuation = continuation
+            COROUTINE_SUSPENDED
+        }
+    }
+
+    final override fun wake(): Boolean {
+        val continuation = this.continuation
+        if (continuation != null) {
+            nextRunTime = NO_NEXT_RUN_TIME
+            this.continuation = null
+            (continuation.context as PronghornCoroutineContext).wake(continuation, Unit)
+            return true
+        }
+        return false
     }
 }
