@@ -14,11 +14,22 @@
  * limitations under the License.
  */
 
-package tech.pronghorn.coroutines.service
+package tech.pronghorn.coroutines.services
 
+import tech.pronghorn.coroutines.core.PronghornCoroutineContext
+import tech.pronghorn.coroutines.core.suspendCoroutine
 import java.time.Duration
+import kotlin.coroutines.experimental.Continuation
+import kotlin.coroutines.experimental.intrinsics.COROUTINE_SUSPENDED
 
-enum class IntervalServiceContract {
+/**
+ * @param BestEffort each process() call takes place as soon as possible after a Duration past the last run
+ * @param Precise attempts to call process() after a Duration from a single starting point, skipping calls if the
+ * interval cannot be executed within the interval between Durations
+ * @param StrictPrecise attempts to call process() after a Duration from a single starting point, process() is called
+ * once for each passed interval even if multiple have passed.
+ */
+public enum class IntervalServiceContract {
     BestEffort,
     Precise,
     StrictPrecise
@@ -28,53 +39,71 @@ enum class IntervalServiceContract {
  * A service that calls process() on an interval.
  *
  * @param interval time desired between calls to process(), actual time may be greater
+ * @param intervalServiceContract what sort of timing guarantees are provided
  */
-abstract class IntervalService(val interval: Duration,
-                               val intervalServiceContract: IntervalServiceContract = IntervalServiceContract.BestEffort,
-                               var warnOnOverload: Boolean = true) : InternalSleepableService() {
-    private val durationAsMillis = interval.toMillis()
-    private var lastRunTime = System.currentTimeMillis()
+public abstract class IntervalService(protected val interval: Duration,
+                                      protected val intervalServiceContract: IntervalServiceContract = IntervalServiceContract.BestEffort): TimedService() {
+    private var continuation: Continuation<Unit>? = null
+    private val durationAsNanos = interval.toNanos()
+    private var lastRunTime = System.nanoTime()
+    private var nextRunTime = lastRunTime + durationAsNanos
 
-    var nextRunTime = lastRunTime + durationAsMillis
-        private set
+    final override fun getNextRunTime(): Long = nextRunTime
 
-    override suspend fun run() {
-        while(isRunning()) {
+    open fun onOverload() = Unit
+
+    public suspend fun sleepAsync() {
+        suspendCoroutine { continuation: Continuation<Unit> ->
+            this.continuation = continuation
+            COROUTINE_SUSPENDED
+        }
+    }
+
+    final override fun wake(): Boolean {
+        val continuation = this.continuation
+        if(continuation != null){
+            this.continuation = null
+            (continuation.context as PronghornCoroutineContext).wake(continuation, Unit)
+            return true
+        }
+        return false
+    }
+
+    final override suspend fun run() {
+        while (isRunning()) {
             sleepAsync()
-            val now = System.currentTimeMillis()
+            val now = System.nanoTime()
             process()
-            when(intervalServiceContract) {
+            when (intervalServiceContract) {
                 IntervalServiceContract.BestEffort -> {
-                    if(warnOnOverload && now > nextRunTime + durationAsMillis){
-                        logger.warn { "Worker overloaded, IntervalService could not run during requested interval." }
+                    if ((nextRunTime + durationAsNanos) - now < 0) {
+                        onOverload()
                     }
                     lastRunTime = now
-                    nextRunTime = lastRunTime + durationAsMillis
+                    nextRunTime = lastRunTime + durationAsNanos
                 }
                 IntervalServiceContract.Precise -> {
                     lastRunTime = now
-                    nextRunTime += durationAsMillis
-                    if(nextRunTime < now) {
+                    nextRunTime += durationAsNanos
+                    if (nextRunTime - now < 0) {
                         var skipped = 0
-                        while (nextRunTime < now) {
+                        while (nextRunTime - now < 0) {
                             skipped += 1
-                            nextRunTime += durationAsMillis
+                            nextRunTime += durationAsNanos
                         }
-                        if(warnOnOverload) {
-                            logger.warn { "Worker overloaded, IntervalService could not run during interval. Skipped $skipped intervals." }
-                        }
+                        onOverload()
                     }
                 }
                 IntervalServiceContract.StrictPrecise -> {
                     lastRunTime = now
-                    nextRunTime += durationAsMillis
-                    if(warnOnOverload && nextRunTime < now){
-                        logger.warn { "IntervalService process too longer to run than interval duration." }
+                    nextRunTime += durationAsNanos
+                    if (nextRunTime - now < 0) {
+                        onOverload()
                     }
                 }
             }
         }
     }
 
-    abstract fun process()
+    protected abstract fun process()
 }
