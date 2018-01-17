@@ -14,24 +14,31 @@
  * limitations under the License.
  */
 
-package tech.pronghorn.coroutines.service
+package tech.pronghorn.coroutines.services
 
 import tech.pronghorn.coroutines.awaitable.*
 import tech.pronghorn.coroutines.awaitable.queue.*
+import tech.pronghorn.coroutines.core.CoroutineWorker
+import tech.pronghorn.coroutines.core.Service
 import tech.pronghorn.util.stackTraceToString
 
-abstract class ExternalQueueService<WorkType>(queueCapacity: Int = 16384) : QueueService<WorkType>() {
-    private val queue = ExternalQueue(queueCapacity, this)
+public abstract class ExternalQueueService<WorkType>(worker: CoroutineWorker,
+                                                     queueCapacity: Int = 4096) : Service() {
+    private val queue = ExternalQueue<WorkType>(queueCapacity, worker)
+    protected val queueReader: ExternalQueue.Reader<WorkType> = queue.reader
 
-    protected val queueReader: ExternalQueue.Reader<WorkType> = queue.queueReader
-
-    fun getQueueWriter(): ExternalQueue.Writer<WorkType> = queue.queueWriter
+    public fun getQueueWriter(): ExternalQueue.Writer<WorkType> = queue.writer
 
     abstract suspend fun process(work: WorkType)
 
-    override suspend fun run() {
+    /**
+     * Allows a service to decide when yielding to the worker happens by returning true when yielding is desired.
+     */
+    protected open fun shouldYield(): Boolean = false
+
+    final override suspend fun run() {
         while (isRunning()) {
-            val workItem = await(queueReader)
+            val workItem = queueReader.poll() ?: await(queueReader)
             if (shouldYield()) {
                 yieldAsync()
             }
