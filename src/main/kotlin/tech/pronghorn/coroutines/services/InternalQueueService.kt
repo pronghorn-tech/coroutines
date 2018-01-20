@@ -14,28 +14,33 @@
  * limitations under the License.
  */
 
-package tech.pronghorn.coroutines.service
+package tech.pronghorn.coroutines.services
 
 import tech.pronghorn.coroutines.awaitable.await
 import tech.pronghorn.coroutines.awaitable.queue.InternalQueue
+import tech.pronghorn.coroutines.core.Service
 import tech.pronghorn.util.stackTraceToString
-
 
 /**
  * This type of service is strictly for use within a single worker. process() is allowed to be
  * partially completed for an individual work item, indicated by the Boolean response from process().
  * In the event that a work item is partially processed, it is re-added immediately to the end of the queue.
  */
-abstract class InternalQueueService<WorkType>(queueCapacity: Int = 16384) : QueueService<WorkType>() {
+public abstract class InternalQueueService<WorkType>(queueCapacity: Int = 4096) : Service() {
     private val queue = InternalQueue<WorkType>(queueCapacity)
-    private val queueReader = queue.queueReader
+    private val queueReader = queue.reader
 
-    fun getQueueWriter(): InternalQueue.Writer<WorkType> = queue.queueWriter
+    public fun getQueueWriter(): InternalQueue.Writer<WorkType> = queue.writer
 
     abstract suspend fun process(work: WorkType): Boolean
 
-    override suspend fun run() {
-        var workItem = await(queueReader)
+    /**
+     * Allows a service to decide when yielding to the worker happens by returning true when yielding is desired.
+     */
+    protected open fun shouldYield(): Boolean = false
+
+    final override suspend fun run() {
+        var workItem = queueReader.poll() ?: await(queueReader)
         while (isRunning()) {
             if (shouldYield()) {
                 yieldAsync()
@@ -57,7 +62,7 @@ abstract class InternalQueueService<WorkType>(queueCapacity: Int = 16384) : Queu
                 }
             }
             else {
-                workItem = await(queueReader)
+                workItem = queueReader.poll() ?: await(queueReader)
             }
         }
     }
