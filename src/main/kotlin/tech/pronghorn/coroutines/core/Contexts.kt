@@ -34,7 +34,9 @@ public sealed class PronghornCoroutineContext(key: CoroutineContext.Key<*>) : Ab
 
     public fun wakeExceptionally(continuation: Continuation<*>,
                                  throwable: Throwable) {
-        if (DEBUG) { validateWakeable() }
+        if (DEBUG) {
+            validateWakeable()
+        }
         isWakeValueException = true
         wakeValue = throwable
         worker.resumeContinuation(continuation)
@@ -42,7 +44,9 @@ public sealed class PronghornCoroutineContext(key: CoroutineContext.Key<*>) : Ab
 
     public fun <T> wake(continuation: Continuation<T>,
                         value: T) {
-        if (DEBUG) { validateWakeable() }
+        if (DEBUG) {
+            validateWakeable()
+        }
         wakeValue = value
         worker.resumeContinuation(continuation)
     }

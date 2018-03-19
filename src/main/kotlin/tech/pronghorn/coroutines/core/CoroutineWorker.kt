@@ -56,8 +56,10 @@ public open class CoroutineWorker : Lifecycle() {
 
     protected open val initialServices: List<Service> = emptyList()
 
+    internal fun getInitialServiceCount(): Int = initialServices.size
+
     public fun <T> launchWorkerCoroutine(block: suspend () -> T) {
-        if(DEBUG && !isWorkerThread()) {
+        if (DEBUG && !isWorkerThread()) {
             throw IllegalStateException("launchWorkerCoroutine must be called from within the worker.")
         }
         block.startCoroutine(PronghornCoroutine(WorkerCoroutineContext(this)))
@@ -183,7 +185,7 @@ public open class CoroutineWorker : Lifecycle() {
             val service = timedServices[x]
             x += 1
             val nextRunTime = service.getNextRunTime()
-            if(nextRunTime == NO_NEXT_RUN_TIME){
+            if (nextRunTime == NO_NEXT_RUN_TIME) {
                 continue
             }
             val timeUntilNextRun = nextRunTime - now
@@ -237,7 +239,7 @@ public open class CoroutineWorker : Lifecycle() {
 
                 runTimedServices()
 
-                if(selectedCount > 0) {
+                if (selectedCount > 0) {
                     val selected = selector.selectedKeys()
                     selected.forEach { key ->
                         processKey(key)
