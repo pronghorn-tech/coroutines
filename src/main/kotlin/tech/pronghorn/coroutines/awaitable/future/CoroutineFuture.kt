@@ -18,7 +18,7 @@ package tech.pronghorn.coroutines.awaitable.future
 
 import tech.pronghorn.coroutines.awaitable.Awaitable
 import tech.pronghorn.coroutines.core.*
-import tech.pronghorn.plugins.internalQueue.InternalQueuePlugin
+import java.util.LinkedList
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutionException
 import kotlin.coroutines.experimental.Continuation
@@ -28,7 +28,7 @@ public class CoroutineFuture<T>(private val onComplete: ((T) -> Unit)? = null) :
     private var result: T? = null
     private var exception: ExecutionException? = null
     private var state = FutureState.INITIALIZED
-    private val waiters = InternalQueuePlugin.getUnbounded<Continuation<T>>()
+    private val waiters = LinkedList<Continuation<T>>()
 
     companion object {
         private val cancelledException = CancellationException()
