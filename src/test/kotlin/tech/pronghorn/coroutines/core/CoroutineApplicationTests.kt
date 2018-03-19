@@ -22,7 +22,7 @@ import org.junit.jupiter.api.RepeatedTest
 import tech.pronghorn.test.*
 
 class CoroutineApplicationTests : PronghornTest() {
-    class TestApplication : CoroutineApplication() {
+    class TestApplication : CoroutineApplication<CoroutineWorker>() {
         var onStartCalled = false
         var onShutdownCalled = false
         val workerA = CoroutineWorker()

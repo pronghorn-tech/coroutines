@@ -25,7 +25,7 @@ import tech.pronghorn.test.lightRepeatCount
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
 
-class ExternalQueueTestService(override val worker: CoroutineWorker) : ExternalQueueService<Int>(worker, 4096) {
+class ExternalQueueTestService(override val worker: CoroutineWorker) : ExternalQueueService<Int>(4096) {
     @Volatile
     var processed = 0L
 

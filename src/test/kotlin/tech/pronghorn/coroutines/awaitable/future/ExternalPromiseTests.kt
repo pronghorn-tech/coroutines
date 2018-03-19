@@ -31,7 +31,7 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutionException
 
 class ExternalPromiseTests : PronghornTestWithWorkerCleanup() {
-    class ExternalFutureWaiterService(override val worker: CoroutineWorker) : ExternalQueueService<CoroutineFuture<Int>>(worker) {
+    class ExternalFutureWaiterService(override val worker: CoroutineWorker) : ExternalQueueService<CoroutineFuture<Int>>() {
         @Volatile
         var total = 0
         @Volatile
@@ -309,7 +309,7 @@ class ExternalPromiseTests : PronghornTestWithWorkerCleanup() {
         val workerA = getWorker(false)
         val workerB = getWorker(false)
 
-        val externalQueue = ExternalQueue<CoroutinePromise<Long>>(1024, workerA)
+        val externalQueue = ExternalQueue<CoroutinePromise<Long>>(1024)
         val count = 1000000L
         var total = 0L
 
