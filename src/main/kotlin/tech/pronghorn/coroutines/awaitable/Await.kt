@@ -40,9 +40,11 @@ public class AwaitResult4<A, B, C, D>(private val a: A,
     public operator fun component4() = d
 }
 
-public suspend fun <T> await(awaitable: Awaitable<T>): T = awaitable.awaitAsync()
+@Suppress("NOTHING_TO_INLINE")
+public suspend inline fun <T> await(awaitable: Awaitable<T>): T = awaitable.awaitAsync()
 
-public suspend fun <A, B> await(awaitableA: Awaitable<A>,
+@Suppress("NOTHING_TO_INLINE")
+public suspend inline fun <A, B> await(awaitableA: Awaitable<A>,
                                 awaitableB: Awaitable<B>): AwaitResult2<A, B> {
     return AwaitResult2(
             awaitableA.awaitAsync(),
@@ -50,7 +52,8 @@ public suspend fun <A, B> await(awaitableA: Awaitable<A>,
     )
 }
 
-public suspend fun <A, B, C> await(awaitableA: Awaitable<A>,
+@Suppress("NOTHING_TO_INLINE")
+public suspend inline fun <A, B, C> await(awaitableA: Awaitable<A>,
                                    awaitableB: Awaitable<B>,
                                    awaitableC: Awaitable<C>): AwaitResult3<A, B, C> {
     return AwaitResult3(
@@ -60,7 +63,8 @@ public suspend fun <A, B, C> await(awaitableA: Awaitable<A>,
     )
 }
 
-public suspend fun <A, B, C, D> await(awaitableA: Awaitable<A>,
+@Suppress("NOTHING_TO_INLINE")
+public suspend inline fun <A, B, C, D> await(awaitableA: Awaitable<A>,
                                       awaitableB: Awaitable<B>,
                                       awaitableC: Awaitable<C>,
                                       awaitableD: Awaitable<D>): AwaitResult4<A, B, C, D> {
