@@ -20,12 +20,10 @@ import tech.pronghorn.coroutines.awaitable.Awaitable
 import tech.pronghorn.coroutines.awaitable.await
 import tech.pronghorn.coroutines.awaitable.future.CoroutineFuture
 import tech.pronghorn.coroutines.awaitable.future.CoroutinePromise
-import tech.pronghorn.coroutines.core.CoroutineWorker
 import tech.pronghorn.plugins.mpscQueue.MpscQueuePlugin
 import tech.pronghorn.plugins.spmcQueue.SpmcQueuePlugin
 
-public class ExternalQueue<T>(capacity: Int,
-                              public val worker: CoroutineWorker) {
+public class ExternalQueue<T>(public val capacity: Int) {
     private val queue = MpscQueuePlugin.getBounded<T>(validateQueueCapacity(capacity))
     private val emptyWaiters = SpmcQueuePlugin.getUnbounded<CoroutinePromise<T>>()
     private val fullWaiters = MpscQueuePlugin.getUnbounded<CoroutinePromise<Unit>>()
@@ -76,6 +74,20 @@ public class ExternalQueue<T>(capacity: Int,
                 }
             }
             return result
+        }
+
+        fun drainTo(collection: MutableCollection<T>, maxElements: Int): Int {
+            val drained = wrapper.queue.drainTo(collection, maxElements)
+            if(drained > 0){
+                var promise = wrapper.fullWaiters.poll()
+                while(promise != null){
+                    if(promise.complete(Unit)){
+                        return drained
+                    }
+                    promise = wrapper.fullWaiters.poll()
+                }
+            }
+            return drained
         }
 
         override suspend fun awaitAsync(): T {
