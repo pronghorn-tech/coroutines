@@ -16,7 +16,6 @@
 
 package tech.pronghorn.coroutines.services
 
-import tech.pronghorn.coroutines.awaitable.await
 import tech.pronghorn.coroutines.awaitable.queue.InternalQueue
 import tech.pronghorn.coroutines.core.Service
 import tech.pronghorn.util.stackTraceToString
@@ -26,7 +25,7 @@ import tech.pronghorn.util.stackTraceToString
  * partially completed for an individual work item, indicated by the Boolean response from process().
  * In the event that a work item is partially processed, it is re-added immediately to the end of the queue.
  */
-public abstract class InternalQueueService<WorkType>(queueCapacity: Int = 4096) : Service() {
+public abstract class InternalQueueService<WorkType>(queueCapacity: Int = 1024) : Service() {
     private val queue = InternalQueue<WorkType>(queueCapacity)
     private val queueReader = queue.reader
 
@@ -40,12 +39,8 @@ public abstract class InternalQueueService<WorkType>(queueCapacity: Int = 4096) 
     protected open fun shouldYield(): Boolean = false
 
     final override suspend fun run() {
-        var workItem = queueReader.poll() ?: await(queueReader)
+        var workItem = queueReader.poll() ?: queueReader.awaitAsync()
         while (isRunning()) {
-            if (shouldYield()) {
-                yieldAsync()
-            }
-
             val finished = try {
                 process(workItem)
             }
@@ -62,7 +57,11 @@ public abstract class InternalQueueService<WorkType>(queueCapacity: Int = 4096) 
                 }
             }
             else {
-                workItem = queueReader.poll() ?: await(queueReader)
+                workItem = queueReader.poll() ?: queueReader.awaitAsync()
+            }
+
+            if (shouldYield()) {
+                yieldAsync()
             }
         }
     }
