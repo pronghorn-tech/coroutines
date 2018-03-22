@@ -16,16 +16,13 @@
 
 package tech.pronghorn.coroutines.services
 
-import tech.pronghorn.coroutines.awaitable.*
-import tech.pronghorn.coroutines.awaitable.queue.*
-import tech.pronghorn.coroutines.core.CoroutineWorker
+import tech.pronghorn.coroutines.awaitable.queue.ExternalQueue
 import tech.pronghorn.coroutines.core.Service
 import tech.pronghorn.util.stackTraceToString
 
-public abstract class ExternalQueueService<WorkType>(worker: CoroutineWorker,
-                                                     queueCapacity: Int = 4096) : Service() {
-    private val queue = ExternalQueue<WorkType>(queueCapacity, worker)
-    protected val queueReader: ExternalQueue.Reader<WorkType> = queue.reader
+public abstract class ExternalQueueService<WorkType>(queueCapacity: Int = 1024) : Service() {
+    private val queue = ExternalQueue<WorkType>(queueCapacity)
+    private val queueReader: ExternalQueue.Reader<WorkType> = queue.reader
 
     public fun getQueueWriter(): ExternalQueue.Writer<WorkType> = queue.writer
 
@@ -38,16 +35,17 @@ public abstract class ExternalQueueService<WorkType>(worker: CoroutineWorker,
 
     final override suspend fun run() {
         while (isRunning()) {
-            val workItem = queueReader.poll() ?: await(queueReader)
-            if (shouldYield()) {
-                yieldAsync()
-            }
+            val workItem = queueReader.poll() ?: queueReader.awaitAsync()
 
             try {
                 process(workItem)
             }
             catch (ex: Exception) {
                 logger.error { "Queue service threw exception: ${ex.stackTraceToString()}" }
+            }
+
+            if (shouldYield()) {
+                yieldAsync()
             }
         }
     }
