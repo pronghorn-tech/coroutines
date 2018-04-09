@@ -41,18 +41,16 @@ public open class CoroutineWorker : Lifecycle() {
     private val workerThread = object : WorkerThread(this, "${javaClass.simpleName}-$workerID") {
         override fun run() = threadStart()
     }
+    @Volatile private var started = false
+    private var selectorWoke = false
     private val runningServices: MutableList<Service> = mutableListOf()
     private val timedServices: MutableList<TimedService> = mutableListOf()
-    private val externalWork = MpscQueuePlugin.getUnbounded<() -> Unit>()
     private val coroutineRunQueue = InternalQueuePlugin.getUnbounded<Continuation<*>>()
     private val startedLock = ReentrantLock()
     private val startedCondition = startedLock.newCondition()
-    @Volatile
-    private var hasExternalWork = false
-    @Volatile
-    private var started = false
-    private var selectorWoke = false
     private var hasRegisteredSelectionKeys = false
+    private val externalWork = MpscQueuePlugin.getUnbounded<RunnableInWorker>()
+    @Volatile private var hasExternalWork = false
 
     protected open val initialServices: List<Service> = emptyList()
 
@@ -246,13 +244,12 @@ public open class CoroutineWorker : Lifecycle() {
                     }
                     selected.clear()
                 }
-
                 if (hasExternalWork) {
                     hasExternalWork = false
                     var work = externalWork.poll()
                     while (work != null) {
                         // TODO: what happens if I throw an exception in an external work?
-                        work()
+                        work.runInWorker()
                         work = externalWork.poll()
                     }
                 }
@@ -279,12 +276,23 @@ public open class CoroutineWorker : Lifecycle() {
         }
     }
 
+    public fun executeInWorker(runnable: RunnableInWorker) {
+        if (isWorkerThread()) {
+            runnable.runInWorker()
+        }
+        else {
+            externalWork.add(runnable)
+            hasExternalWork = true
+            selector.wakeup()
+        }
+    }
+
     public fun executeInWorker(block: () -> Unit) {
         if (isWorkerThread()) {
             block()
         }
         else {
-            externalWork.add(block)
+            externalWork.add(RunnableBlockInWorker(block))
             hasExternalWork = true
             selector.wakeup()
         }
@@ -295,27 +303,11 @@ public open class CoroutineWorker : Lifecycle() {
             launchWorkerCoroutine(block)
         }
         else {
-            externalWork.add { launchWorkerCoroutine(block) }
+            externalWork.add(RunnableBlockInWorker({ launchWorkerCoroutine(block) }))
             hasExternalWork = true
             selector.wakeup()
         }
     }
-
-//    public fun <T> executeInWorker(block: () -> T): CoroutineFuture<T> {
-//        if (isWorkerThread()) {
-//            return CoroutineFuture.completed(block())
-//        }
-//        else {
-//            val future = CoroutineFuture<T>()
-//            externalWork.add {
-//                val promise = future.promise()
-//                promise.complete(block())
-//                hasExternalWork = true
-//                selector.wakeup()
-//            }
-//            return future
-//        }
-//    }
 
     private fun processKey(key: SelectionKey) = (key.attachment() as SelectionKeyHandler).handle(key)
 
@@ -328,18 +320,4 @@ public open class CoroutineWorker : Lifecycle() {
         hasRegisteredSelectionKeys = true
         return selectable.register(selector, interestOps, handler)
     }
-
-//    public fun NEWregisterSelectionKeyHandler(selectable: SelectableChannel,
-//                                              handler: SelectionKeyHandler,
-//                                              interestOps: Int = 0): CoroutineFuture<SelectionKey> {
-//        hasRegisteredSelectionKeys = true
-//        if (isWorkerThread()) {
-//            return CoroutineFuture.completed(selectable.register(selector, interestOps, handler))
-//        }
-//        else {
-//            return executeInWorker<SelectionKey> {
-//                selectable.register(selector, interestOps, handler)
-//            }
-//        }
-//    }
 }
