@@ -18,19 +18,16 @@ package tech.pronghorn.coroutines.core
 
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.RepeatedTest
-import tech.pronghorn.coroutines.service.InternalQueueService
-import tech.pronghorn.coroutines.service.Service
-import tech.pronghorn.test.*
-import java.nio.channels.SelectionKey
+import tech.pronghorn.coroutines.PronghornTestWithWorkerCleanup
+import tech.pronghorn.coroutines.services.InternalQueueService
+import tech.pronghorn.test.eventually
+import tech.pronghorn.test.heavyRepeatCount
+import java.time.Duration
 
-class EmptyPipeline : CoroutineWorker() {
-    override val services: List<Service> = emptyList()
-}
-
-class CountdownPipeline(val totalWork: Long) : CoroutineWorker() {
+class CountdownWorker(totalWork: Long) : CoroutineWorker() {
     val countdownService = CountdownService(this, totalWork)
 
-    override val services = listOf(countdownService)
+    override val initialServices = listOf(countdownService)
 
     override fun onStart() {
         val countdownWriter = countdownService.getQueueWriter()
@@ -45,6 +42,7 @@ class CountdownService(override val worker: CoroutineWorker,
     override fun shouldYield(): Boolean {
         return true
     }
+
 
     suspend override fun process(work: Int): Boolean {
         workDone += 1
@@ -66,15 +64,22 @@ class PingService(override val worker: CoroutineWorker,
         pongService?.getQueueWriter()
     }
 
-    override fun shouldYield(): Boolean = workDone % 100 == 0L
+    override fun shouldYield(): Boolean = true
 
-    suspend override fun process(work: Int): Boolean {
-        workDone += 1
+    fun shutdownWorker() {
+        worker.shutdown()
+    }
+
+    @Suppress("OVERRIDE_BY_INLINE", "NOTHING_TO_INLINE")
+    override suspend inline fun process(work: Int): Boolean {
         if (workDone + (pongService?.workDone ?: 0) >= totalWork) {
-            worker.shutdown()
+            if(worker.isRunning()) {
+                shutdownWorker()
+            }
         }
         else {
-            pongWriter!!.addAsync(1)
+            workDone += 1
+            pongWriter!!.offer(1) || pongWriter!!.addAsync(1)
         }
         return true
     }
@@ -89,28 +94,32 @@ class PongService(override val worker: CoroutineWorker,
     }
     var workDone = 0L
 
-    override fun shouldYield(): Boolean = workDone % 100 == 0L
+    override fun shouldYield(): Boolean = true
 
-    suspend override fun process(work: Int): Boolean {
-        workDone += 1
+    fun shutdownWorker() {
+        worker.shutdown()
+    }
+
+    @Suppress("OVERRIDE_BY_INLINE", "NOTHING_TO_INLINE")
+    override suspend inline fun process(work: Int): Boolean {
         if (workDone + (pingService?.workDone ?: 0) >= totalWork) {
-            worker.shutdown()
+            if(worker.isRunning()) {
+                shutdownWorker()
+            }
         }
         else {
-            pingWriter!!.addAsync(1)
+            workDone += 1
+            pingWriter!!.offer(1) || pingWriter!!.addAsync(1)
         }
         return true
     }
 }
 
-class PingPongPipeline(totalWork: Long) : CoroutineWorker() {
+class PingPongWorker(totalWork: Long) : CoroutineWorker() {
     val pingService = PingService(this, totalWork)
     val pongService = PongService(this, totalWork)
 
-    override val services = listOf(
-            pingService,
-            pongService
-    )
+    override val initialServices = listOf(pingService, pongService)
 
     override fun onStart() {
         pingService.pongService = pongService
@@ -120,41 +129,28 @@ class PingPongPipeline(totalWork: Long) : CoroutineWorker() {
     }
 }
 
-class ServiceTests : PronghornTest() {
-    @RepeatedTest(repeatCount)
-    fun pipelinesShouldStartAndStop() {
-        val pipeline = EmptyPipeline()
-
-        assertFalse(pipeline.isRunning)
-        pipeline.start()
-        eventually { assertTrue(pipeline.isRunning) }
-        pipeline.shutdown()
-        eventually { assertFalse(pipeline.isRunning) }
-    }
-
-    @RepeatedTest(repeatCount)
-    fun pipelinesShouldRunSuccessfully() {
+class ServiceTests : PronghornTestWithWorkerCleanup() {
+    @RepeatedTest(heavyRepeatCount)
+    fun workersShouldRunSuccessfullyTest() {
         val workCount = 1000000L
-        val pipeline = CountdownPipeline(workCount)
+        val worker = getWorker(false) { CountdownWorker(workCount) }
 
         val pre = System.currentTimeMillis()
-        pipeline.start()
-        eventually { assertEquals(workCount, pipeline.countdownService.workDone) }
-
+        worker.start()
+        eventually { assertEquals(workCount, worker.countdownService.workDone) }
         val post = System.currentTimeMillis()
         logger.info { "Took ${post - pre}ms for $workCount, ${(workCount / (post - pre)) / 1000.0} million per second" }
     }
 
-    @RepeatedTest(repeatCount)
-    fun pipelinesShouldRescheduleBetweenServices() {
+    @RepeatedTest(64)
+    fun pipelinesShouldRescheduleBetweenServicesTest() {
         val workCount = 1000000L
-        val pipeline = PingPongPipeline(workCount)
+        val worker = getWorker(false) { PingPongWorker(workCount) }
 
         val pre = System.currentTimeMillis()
-        pipeline.start()
-        eventually { assertEquals(workCount, (pipeline.pingService.workDone + pipeline.pongService.workDone)) }
+        worker.start()
+        eventually(Duration.ofSeconds(60)) { assertEquals(workCount, (worker.pingService.workDone + worker.pongService.workDone)) }
         val post = System.currentTimeMillis()
         logger.info { "A Took ${post - pre}ms for $workCount, ${(workCount / (post - pre)) / 1000.0} million per second" }
-        pipeline.shutdown()
     }
 }

@@ -16,11 +16,8 @@
 
 package tech.pronghorn.coroutines.core
 
-import tech.pronghorn.coroutines.awaitable.InternalFuture
-import tech.pronghorn.coroutines.awaitable.QueueWriter
-import tech.pronghorn.coroutines.messages.AddServiceMessage
-import tech.pronghorn.coroutines.messages.PromiseCompletionMessage
-import tech.pronghorn.coroutines.service.*
+import tech.pronghorn.coroutines.services.NO_NEXT_RUN_TIME
+import tech.pronghorn.coroutines.services.TimedService
 import tech.pronghorn.plugins.internalQueue.InternalQueuePlugin
 import tech.pronghorn.plugins.logging.LoggingPlugin
 import tech.pronghorn.plugins.mpscQueue.MpscQueuePlugin
@@ -28,8 +25,7 @@ import tech.pronghorn.util.ignoreExceptions
 import java.nio.channels.*
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.thread
-import kotlin.coroutines.experimental.RestrictsSuspension
+import kotlin.coroutines.experimental.*
 
 private val workerIDs = AtomicLong(0)
 
@@ -38,128 +34,72 @@ private val workerIDs = AtomicLong(0)
  * This happens on A dedicated thread that runs when start() is called
  */
 @RestrictsSuspension
-abstract class CoroutineWorker {
-    val workerID = workerIDs.incrementAndGet()
+public open class CoroutineWorker : Lifecycle() {
+    public val workerID = workerIDs.incrementAndGet()
     protected val logger = LoggingPlugin.get(javaClass)
-    protected val selector: Selector = Selector.open()
-    private val workerThread = thread(start = false, name = "${javaClass.simpleName}-$workerID") {
-        startInternal()
+    private val selector: Selector = Selector.open()
+    private val workerThread = object : WorkerThread(this, "${javaClass.simpleName}-$workerID") {
+        override fun run() = threadStart()
     }
+    @Volatile private var started = false
+    private var selectorWoke = false
     private val runningServices: MutableList<Service> = mutableListOf()
-    private val intervalServices: MutableList<IntervalService> = mutableListOf()
-    private var nextTimedServiceTime: Long? = null
-    private val runQueue = MpscQueuePlugin.getUnbounded<Service>()
-    private val interWorkerMessages = MpscQueuePlugin.getUnbounded<Any>()
-    private val shutdownMethods = InternalQueuePlugin.getUnbounded<() -> Unit>()
+    private val timedServices: MutableList<TimedService> = mutableListOf()
+    private val coroutineRunQueue = InternalQueuePlugin.getUnbounded<Continuation<*>>()
     private val startedLock = ReentrantLock()
     private val startedCondition = startedLock.newCondition()
-    private val attachments = mutableMapOf<WorkerAttachmentKey<*>, Any>()
-    @Volatile private var hasInterWorkerMessages = false
-    @Volatile private var started = false
-    var isRunning = false
-        private set
+    private var hasRegisteredSelectionKeys = false
+    private val externalWork = MpscQueuePlugin.getUnbounded<RunnableInWorker>()
+    @Volatile private var hasExternalWork = false
 
-    abstract protected val services: List<Service>
+    protected open val initialServices: List<Service> = emptyList()
 
-    @Suppress("UNCHECKED_CAST")
-    fun <T : Any> getAttachment(key: WorkerAttachmentKey<T>): T? {
-        val value = attachments[key] ?: return null
-        return value as T
+    internal fun getInitialServiceCount(): Int = initialServices.size
+
+    public fun <T> launchWorkerCoroutine(block: suspend () -> T) {
+        if (DEBUG && !isWorkerThread()) {
+            throw IllegalStateException("launchWorkerCoroutine must be called from within the worker.")
+        }
+        block.startCoroutine(PronghornCoroutine(WorkerCoroutineContext(this)))
     }
 
-    fun <T : Any> putAttachment(key: WorkerAttachmentKey<T>,
-                                value: T): Boolean {
-        return attachments.putIfAbsent(key, value) == null
-    }
-
-    fun <T : Any> removeAttachment(key: WorkerAttachmentKey<T>): Boolean {
-        return attachments.remove(key) != null
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    fun <T : Any> getOrPutAttachment(key: WorkerAttachmentKey<T>,
-                                     default: () -> T): T {
-        return attachments.getOrPut(key, default) as T
-    }
-
-    fun registerShutdownMethod(method: () -> Unit) {
-        shutdownMethods.add(method)
-    }
-
-    internal fun offerReady(service: Service) {
-        if (!runQueue.offer(service)) {
-            throw Exception("Unexpectedly failed to enqueue service.")
+    internal fun resumeContinuation(continuation: Continuation<*>) {
+        coroutineRunQueue.add(continuation)
+        if (!selectorWoke) {
+            selectorWoke = true
+            selector.wakeup()
         }
     }
 
-    fun isWorkerThread() = Thread.currentThread() == workerThread
+    public fun isWorkerThread() = Thread.currentThread() == workerThread
 
-    fun sendInterWorkerMessage(message: Any) {
-        interWorkerMessages.add(message)
-        hasInterWorkerMessages = true
-        selector.wakeup()
-    }
+    public fun addService(service: Service) {
+        if (service.worker != this) {
+            throw IllegalStateException("Service $service cannot be added to worker $workerID, it is bound to worker ${service.worker.workerID}")
+        }
 
-    internal fun <T> crossThreadCompletePromise(promise: InternalFuture.InternalPromise<T>,
-                                                value: T) {
-        sendInterWorkerMessage(PromiseCompletionMessage(promise, value))
-    }
-
-    internal fun addService(service: Service) {
-        if (isWorkerThread()) {
+        executeInWorker {
             startService(service)
         }
-        else {
-            sendInterWorkerMessage(AddServiceMessage(service))
-        }
     }
-
-    fun getRunningServices(): List<Service> = runningServices.toList()
-
-    inline fun <reified ServiceType : Service> getService(): ServiceType? {
-        getRunningServices().forEach { service ->
-            if (service is ServiceType) {
-                return service
-            }
-        }
-        return null
-    }
-
-    inline fun <reified WorkType, reified ServiceType : QueueService<WorkType>> getServiceQueueWriter(): QueueWriter<WorkType>? {
-        getRunningServices().forEach { service ->
-            if (service is ServiceType) {
-                return service.getQueueWriter()
-            }
-        }
-        return null
-    }
-
-    open protected fun onShutdown() = Unit
-
-    open protected fun onStart() = Unit
 
     private fun startService(service: Service) {
-        service.start()
-        runningServices.add(service)
+        if (service.worker != this) {
+            throw IllegalStateException("Service $service cannot be added to worker $workerID, it is bound to worker ${service.worker.workerID}")
+        }
+        else if (runningServices.contains(service)) {
+            throw IllegalStateException("Attempt to start service $service twice.")
+        }
+        else {
+            if (service is TimedService) {
+                timedServices.add(service)
+            }
+            service.start()
+            runningServices.add(service)
+        }
     }
 
-    private fun startInternal() {
-        startedLock.lock()
-        try {
-            onStart()
-            services.forEach { service -> startService(service) }
-            isRunning = true
-        }
-        finally {
-            started = true
-            startedCondition.signal()
-            startedLock.unlock()
-        }
-
-        run()
-    }
-
-    fun start() {
+    internal fun start() {
         startedLock.lock()
         try {
             workerThread.start()
@@ -172,108 +112,145 @@ abstract class CoroutineWorker {
         }
     }
 
-    private fun shutdownInternal() {
-        shutdownMethods.forEach { it() }
-        onShutdown()
-        try {
-            selector.close()
+    internal fun shutdown() = lifecycleShutdown()
+
+    public fun getRunningServices(): List<Service> = runningServices.toList()
+
+    public inline fun <reified ServiceType : Service> getService(): ServiceType? {
+        getRunningServices().forEach { service ->
+            if (service is ServiceType) {
+                return service
+            }
         }
-        finally {
-            isRunning = false
-        }
+        return null
     }
 
-    internal fun shutdown() {
-        logger.debug { "$workerID Requesting shutdown" }
+    private fun threadStart() {
+        startedLock.lock()
+        try {
+            lifecycleStart()
+            logger.debug { "$workerID starting" }
+            initialServices.forEach { service -> startService(service) }
+        }
+        finally {
+            started = true
+            startedCondition.signal()
+            startedLock.unlock()
+        }
+
+        run()
+    }
+
+    final override fun onLifecycleStart() = Unit
+
+    final override fun onLifecycleShutdown() {
+        logger.debug { "$workerID Shutting down." }
         ignoreExceptions(
-                { runQueue.clear() },
+                { coroutineRunQueue.clear() },
                 { runningServices.forEach(Service::shutdown) },
                 { selector.close() },
                 { workerThread.interrupt() },
                 { workerThread.join() }
         )
-
-    }
-
-    private fun runService(service: Service) {
-        service.isQueued = false
-        service.resume()
     }
 
     private fun runTimedServices() {
-        if (nextTimedServiceTime == null) {
+        if (timedServices.isEmpty()) {
             return
         }
 
-        val nextTime = nextTimedServiceTime
-        val now = System.currentTimeMillis()
-        if (nextTime != null && now >= nextTime) {
-            intervalServices.map { service ->
-                if (now >= service.nextRunTime) {
-                    service.wake()
-                }
+        val now = System.nanoTime()
+        var x = 0
+        while (x < timedServices.size) {
+            val service = timedServices[x]
+            val nextRunTime = service.getNextRunTime()
+            if (nextRunTime != NO_NEXT_RUN_TIME && nextRunTime - now < 0) {
+                service.wake()
+            }
+            x += 1
+        }
+    }
+
+    private fun nanosUntilNextTimedServices(): Long {
+        if (timedServices.isEmpty()) {
+            return NO_NEXT_RUN_TIME
+        }
+
+        var selectTimeout = NO_NEXT_RUN_TIME
+        var x = 0
+        val now = System.nanoTime()
+        while (x < timedServices.size) {
+            val service = timedServices[x]
+            x += 1
+            val nextRunTime = service.getNextRunTime()
+            if (nextRunTime == NO_NEXT_RUN_TIME) {
+                continue
+            }
+            val timeUntilNextRun = nextRunTime - now
+            if (timeUntilNextRun < 0) {
+                return 0
             }
 
-            nextTimedServiceTime = calculateNextTimedServiceTime()
-        }
-    }
-
-    private fun calculateNextTimedServiceTime(): Long? {
-        if (intervalServices.isEmpty()) {
-            return null
+            if (selectTimeout == NO_NEXT_RUN_TIME || timeUntilNextRun < selectTimeout) {
+                selectTimeout = timeUntilNextRun
+            }
         }
 
-        return intervalServices.map { it.nextRunTime }.min()
-    }
-
-    private fun calculateSelectTimeout(): Long? {
-        val nextTime = nextTimedServiceTime
-        if (nextTime == null) {
-            return null
-        }
-        else {
-            return nextTime - System.currentTimeMillis()
-        }
+        return selectTimeout
     }
 
     private fun run() {
-        logger.debug { "$workerID worker.run()" }
-        nextTimedServiceTime = calculateNextTimedServiceTime()
         while (true) {
             try {
-                var runnable = runQueue.poll()
-                if (runnable != null) {
-                    while (runnable != null) {
-                        runService(runnable)
-                        runnable = runQueue.poll()
+                var toResume = coroutineRunQueue.poll()
+                val selectedCount = if (toResume != null) {
+                    var run = 0
+                    val cycleStartTime = System.nanoTime()
+                    while (true) {
+                        (toResume.context as PronghornCoroutineContext).resume(toResume)
+                        run += 1
+                        // TODO: these service limits should be configurable
+                        if (run % 16 == 0 && System.nanoTime() - cycleStartTime > 100000) {
+                            break
+                        }
+                        toResume = coroutineRunQueue.poll() ?: break
                     }
-                    selector.selectNow()
+                    if (hasRegisteredSelectionKeys) {
+                        selector.selectNow()
+                    }
+                    else {
+                        0
+                    }
                 }
                 else {
-                    val wakeTime = calculateSelectTimeout()
-
+                    val wakeTime = nanosUntilNextTimedServices()
                     when {
-                        wakeTime == null -> selector.select()
-                        wakeTime < 2 -> selector.selectNow()
-                        else -> selector.select(wakeTime - 1)
+                        wakeTime == NO_NEXT_RUN_TIME -> selector.select()
+                        wakeTime < 1000000 -> selector.selectNow()
+                        else -> {
+                            // convert because selector.select() only has millisecond precision where service timeouts are calculated in nanoseconds
+                            selector.select(wakeTime.div(1000000L) - 1)
+                        }
                     }
                 }
+                selectorWoke = false
 
                 runTimedServices()
 
-                val selected = selector.selectedKeys()
-                selected.forEach { key ->
-                    processKey(key)
+                if (selectedCount > 0) {
+                    val selected = selector.selectedKeys()
+                    selected.forEach { key ->
+                        processKey(key)
+                    }
+                    selected.clear()
                 }
-                selected.clear()
-
-                if (hasInterWorkerMessages) {
-                    var message = interWorkerMessages.poll()
-                    while (message != null) {
-                        if (!internalHandleMessage(message) && !handleMessage(message)) {
-                            logger.warn { "Unhandled message : $message" }
-                        }
-                        message = interWorkerMessages.poll()
+                if (hasExternalWork) {
+                    hasExternalWork = false
+                    var work = externalWork.poll()
+                    while (work != null) {
+                        // TODO: what happens if I throw an exception in an external work?
+                        work.runInWorker()
+                        work = externalWork.poll()
                     }
                 }
             }
@@ -294,36 +271,53 @@ abstract class CoroutineWorker {
             }
         }
 
-        try {
-            shutdownInternal()
-        }
-        catch (ex: Throwable) {
-            ex.printStackTrace()
+        if (!isShutdown()) {
+            shutdown()
         }
     }
 
-    private fun internalHandleMessage(message: Any): Boolean {
-        when (message) {
-            is PromiseCompletionMessage<*> -> message.complete()
-            is AddServiceMessage -> startService(message.service)
-            else -> return false
-        }
-        return true
-    }
-
-    open protected fun handleMessage(message: Any): Boolean = false
-
-    private fun processKey(key: SelectionKey) {
-        val handler = key.attachment()
-        if (handler is SelectionKeyHandler) {
-            handler.handle(key)
+    public fun executeInWorker(runnable: RunnableInWorker) {
+        if (isWorkerThread()) {
+            runnable.runInWorker()
         }
         else {
-            throw IllegalStateException("Cannot process non handlers: $handler")
+            externalWork.add(runnable)
+            hasExternalWork = true
+            selector.wakeup()
         }
     }
 
-    fun registerSelectionKeyHandler(selectable: SelectableChannel,
-                                    handler: SelectionKeyHandler,
-                                    interestOps: Int = 0): SelectionKey = selectable.register(selector, interestOps, handler)
+    public fun executeInWorker(block: () -> Unit) {
+        if (isWorkerThread()) {
+            block()
+        }
+        else {
+            externalWork.add(RunnableBlockInWorker(block))
+            hasExternalWork = true
+            selector.wakeup()
+        }
+    }
+
+    public fun executeSuspendingInWorker(block: suspend () -> Unit) {
+        if (isWorkerThread()) {
+            launchWorkerCoroutine(block)
+        }
+        else {
+            externalWork.add(RunnableBlockInWorker({ launchWorkerCoroutine(block) }))
+            hasExternalWork = true
+            selector.wakeup()
+        }
+    }
+
+    private fun processKey(key: SelectionKey) = (key.attachment() as SelectionKeyHandler).handle(key)
+
+    public fun registerSelectionKeyHandler(selectable: SelectableChannel,
+                                           handler: SelectionKeyHandler,
+                                           interestOps: Int = 0): SelectionKey {
+        if (DEBUG && !isWorkerThread()) {
+            throw IllegalStateException("registerSelectionKeyHandler must be called from the worker thread")
+        }
+        hasRegisteredSelectionKeys = true
+        return selectable.register(selector, interestOps, handler)
+    }
 }

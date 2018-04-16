@@ -18,16 +18,28 @@ package tech.pronghorn.coroutines.core
 
 import java.nio.channels.SelectionKey
 
-interface SelectionKeyHandler {
-    fun handle(key: SelectionKey)
+private const val opsRead = SelectionKey.OP_READ
+private const val opsWrite = SelectionKey.OP_WRITE
+private const val opsReadWrite = SelectionKey.OP_READ.or(SelectionKey.OP_WRITE)
+private const val opsReadWriteConnect = SelectionKey.OP_READ.or(SelectionKey.OP_WRITE).or(SelectionKey.OP_CONNECT)
+private const val opsConnect = SelectionKey.OP_CONNECT
+private const val opsAccept = SelectionKey.OP_ACCEPT
+
+public interface SelectionKeyHandler {
+    val handledOps: Int
+
+    public fun handle(key: SelectionKey)
 }
 
-interface ReadSelectionKeyHandler : SelectionKeyHandler {
-    fun handleRead()
+public interface ReadSelectionKeyHandler : SelectionKeyHandler {
+    override val handledOps
+        get() = opsRead
+
+    public fun handleReadable()
 
     override fun handle(key: SelectionKey) {
         if (key.isReadable) {
-            handleRead()
+            handleReadable()
         }
         else {
             throw IllegalStateException("Unhandled interest ops registered.")
@@ -35,12 +47,15 @@ interface ReadSelectionKeyHandler : SelectionKeyHandler {
     }
 }
 
-interface WriteSelectionKeyHandler : SelectionKeyHandler {
-    fun handleWrite()
+public interface WriteSelectionKeyHandler : SelectionKeyHandler {
+    override val handledOps
+        get() = opsWrite
+
+    public fun handleWritable()
 
     override fun handle(key: SelectionKey) {
         if (key.isWritable) {
-            handleWrite()
+            handleWritable()
         }
         else {
             throw IllegalStateException("Unhandled interest ops registered.")
@@ -48,10 +63,13 @@ interface WriteSelectionKeyHandler : SelectionKeyHandler {
     }
 }
 
-interface ReadWriteSelectionKeyHandler : SelectionKeyHandler {
-    fun handleRead()
+public interface ReadWriteSelectionKeyHandler : SelectionKeyHandler {
+    override val handledOps
+        get() = opsReadWrite
 
-    fun handleWrite()
+    public fun handleReadable()
+
+    public fun handleWritable()
 
     override fun handle(key: SelectionKey) {
         var handled = false
@@ -59,11 +77,11 @@ interface ReadWriteSelectionKeyHandler : SelectionKeyHandler {
         val isWritable = key.isWritable
         if (isReadable) {
             handled = true
-            handleRead()
+            handleReadable()
         }
         if (isWritable) {
             handled = true
-            handleWrite()
+            handleWritable()
         }
         if (!handled) {
             throw IllegalStateException("Unhandled interest ops registered.")
@@ -71,12 +89,13 @@ interface ReadWriteSelectionKeyHandler : SelectionKeyHandler {
     }
 }
 
-interface ReadWriteConnectSelectionKeyHandler : SelectionKeyHandler {
-    fun handleRead()
+public interface ReadWriteConnectSelectionKeyHandler : SelectionKeyHandler {
+    override val handledOps
+        get() = opsReadWriteConnect
 
-    fun handleWrite()
-
-    fun handleConnect()
+    public fun handleReadable()
+    public fun handleWritable()
+    public fun handleConnectable()
 
     override fun handle(key: SelectionKey) {
         var handled = false
@@ -85,15 +104,15 @@ interface ReadWriteConnectSelectionKeyHandler : SelectionKeyHandler {
         val isConnectable = key.isConnectable
         if (isReadable) {
             handled = true
-            handleRead()
+            handleReadable()
         }
         if (isWritable) {
             handled = true
-            handleWrite()
+            handleWritable()
         }
         if (isConnectable) {
             handled = true
-            handleConnect()
+            handleConnectable()
         }
         if (!handled) {
             throw IllegalStateException("Unhandled interest ops registered.")
@@ -101,12 +120,15 @@ interface ReadWriteConnectSelectionKeyHandler : SelectionKeyHandler {
     }
 }
 
-interface ConnectSelectionKeyHandler : SelectionKeyHandler {
-    fun handleConnect()
+public interface ConnectSelectionKeyHandler : SelectionKeyHandler {
+    override val handledOps
+        get() = opsConnect
+
+    public fun handleConnectable()
 
     override fun handle(key: SelectionKey) {
         if (key.isConnectable) {
-            handleConnect()
+            handleConnectable()
         }
         else {
             throw IllegalStateException("Unhandled interest ops registered.")
@@ -114,12 +136,15 @@ interface ConnectSelectionKeyHandler : SelectionKeyHandler {
     }
 }
 
-interface AcceptSelectionKeyHandler : SelectionKeyHandler {
-    fun handleAccept()
+public interface AcceptSelectionKeyHandler : SelectionKeyHandler {
+    override val handledOps
+        get() = opsAccept
+
+    public fun handleAcceptable()
 
     override fun handle(key: SelectionKey) {
         if (key.isAcceptable) {
-            handleAccept()
+            handleAcceptable()
         }
         else {
             throw IllegalStateException("Unhandled interest ops registered.")
