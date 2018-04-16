@@ -1,6 +1,6 @@
 buildscript {
     ext {
-        kotlinVersion = '1.2.30'
+        kotlinVersion = '1.2.31'
     }
 
     repositories {
@@ -63,5 +63,4 @@ dependencies {
     testCompile "tech.pronghorn:plugin-collections-jctools:$version"
     testCompile "tech.pronghorn:plugin-hashing-openhft:$version"
     testCompile "tech.pronghorn:plugin-logging-slf4j:$version"
-    testCompile 'org.jctools:jctools-core:2.1.1'
 }
