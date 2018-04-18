@@ -62,11 +62,11 @@ Finally, we'll instantiate the application, and start it. Since the workerCount 
 2017-09-14T02:41:49.734Z : Hello World from worker 1
 ```
 
-#Releases
+# Releases
 
 _This section will be populated in the future._
 
-#ServiceTypes
+# ServiceTypes
 
 _This section will be populated in the future._
 
