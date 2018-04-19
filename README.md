@@ -7,7 +7,7 @@ _Note: Pronghorn is still considered early in development.  As such, documentati
 This framework is best suited for IO-driven applications where high performance is critical. For instance, [a web server](https://github.com/pronghorn-tech/server).
 
 ## Usage
-Pronghorn is available via [Maven Central](http://search.maven.org/#artifactdetails%7Ctech.pronghorn%7Ccoroutines%7C0.1.3%7Cjar).  The current version is `0.1.3`.
+Pronghorn is available via [Maven Central](http://search.maven.org/#artifactdetails%7Ctech.pronghorn%7Ccoroutines%7C0.2.0%7Cjar).  The current version is `0.2.0`.
 
 # Overview
 Applications built with the framework consist of one or more services each running on a set of workers, typically one worker per thread. Shared data is minimized between workers allowing each worker's services to function without synchronization mechanisms.
