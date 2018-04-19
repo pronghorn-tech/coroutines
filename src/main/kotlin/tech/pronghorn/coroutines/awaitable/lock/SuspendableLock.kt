@@ -16,7 +16,6 @@
 
 package tech.pronghorn.coroutines.awaitable.lock
 
-import tech.pronghorn.coroutines.awaitable.await
 import tech.pronghorn.coroutines.awaitable.future.CoroutineFuture
 import tech.pronghorn.coroutines.awaitable.future.CoroutinePromise
 import tech.pronghorn.plugins.mpscQueue.MpscQueuePlugin
@@ -65,7 +64,7 @@ public class SuspendableLock {
                 return executeLock(block)
             }
             else {
-                await(future)
+                future.awaitAsync()
                 return withLock(block)
             }
         }

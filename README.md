@@ -16,8 +16,8 @@ Applications built with the framework consist of one or more services each runni
 The following is a simple Hello World example of a Pronghorn Coroutine Framework application.
 
 ```kotlin    
-class ExampleApplication(override val workerCount: Int): CoroutineApplication<ExampleWorker>() {
-    override fun spawnWorker(): ExampleWorker = ExampleWorker()
+class ExampleApplication(workerCount: Int): CoroutineApplication<ExampleWorker>() {
+    override val workers: Set<ExampleWorker> = (0 until workerCount).map { ExampleWorker() }.toSet()
 }
 ```
 
@@ -25,7 +25,7 @@ Let's start by defining an ExampleApplication class that extends the CoroutineAp
 
 ```kotlin
 class ExampleWorker : CoroutineWorker(){
-    override val services = listOf(ExampleService(this))
+    override val initialServices = listOf(ExampleService(this))
 }
 ```
 
@@ -50,7 +50,7 @@ fun main(args: Array<String>) {
 ```
 
 Finally, we'll instantiate the application, and start it. Since the workerCount here is defined by the number of available processors, on a dual core machine this would produce output similar to :
-
+v
 ```
 2017-09-14T02:41:47.734Z : Hello World from worker 1
 2017-09-14T02:41:47.734Z : Hello World from worker 2

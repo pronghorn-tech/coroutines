@@ -19,6 +19,7 @@ package tech.pronghorn.coroutines.core
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.RepeatedTest
 import tech.pronghorn.coroutines.PronghornTestWithWorkerCleanup
+import tech.pronghorn.coroutines.awaitable.queue.InternalQueue
 import tech.pronghorn.coroutines.services.InternalQueueService
 import tech.pronghorn.test.eventually
 import tech.pronghorn.test.heavyRepeatCount
@@ -56,13 +57,9 @@ class CountdownService(override val worker: CoroutineWorker,
 
 class PingService(override val worker: CoroutineWorker,
                   val totalWork: Long) : InternalQueueService<Int>() {
-    var pongService: PongService? = null
-
+    lateinit var pongService: PongService
+    lateinit var pongWriter: InternalQueue.Writer<Int>
     var workDone = 0L
-
-    val pongWriter by lazy(LazyThreadSafetyMode.NONE) {
-        pongService?.getQueueWriter()
-    }
 
     override fun shouldYield(): Boolean = true
 
@@ -72,14 +69,14 @@ class PingService(override val worker: CoroutineWorker,
 
     @Suppress("OVERRIDE_BY_INLINE", "NOTHING_TO_INLINE")
     override suspend inline fun process(work: Int): Boolean {
-        if (workDone + (pongService?.workDone ?: 0) >= totalWork) {
+        if (workDone + (pongService.workDone) >= totalWork) {
             if(worker.isRunning()) {
                 shutdownWorker()
             }
         }
         else {
             workDone += 1
-            pongWriter!!.offer(1) || pongWriter!!.addAsync(1)
+            pongWriter.offer(1) || pongWriter.addAsync(1)
         }
         return true
     }
@@ -87,11 +84,8 @@ class PingService(override val worker: CoroutineWorker,
 
 class PongService(override val worker: CoroutineWorker,
                   val totalWork: Long) : InternalQueueService<Int>() {
-    var pingService: PingService? = null
-
-    val pingWriter by lazy(LazyThreadSafetyMode.NONE) {
-        pingService?.getQueueWriter()
-    }
+    lateinit var pingService: PingService
+    lateinit var pingWriter: InternalQueue.Writer<Int>
     var workDone = 0L
 
     override fun shouldYield(): Boolean = true
@@ -102,14 +96,14 @@ class PongService(override val worker: CoroutineWorker,
 
     @Suppress("OVERRIDE_BY_INLINE", "NOTHING_TO_INLINE")
     override suspend inline fun process(work: Int): Boolean {
-        if (workDone + (pingService?.workDone ?: 0) >= totalWork) {
+        if (workDone + (pingService.workDone) >= totalWork) {
             if(worker.isRunning()) {
                 shutdownWorker()
             }
         }
         else {
             workDone += 1
-            pingWriter!!.offer(1) || pingWriter!!.addAsync(1)
+            pingWriter.offer(1) || pingWriter.addAsync(1)
         }
         return true
     }
@@ -124,7 +118,9 @@ class PingPongWorker(totalWork: Long) : CoroutineWorker() {
     override fun onStart() {
         pingService.pongService = pongService
         pongService.pingService = pingService
-        while (pingService.pongWriter!!.offer(1)) {
+        pingService.pongWriter = pongService.getQueueWriter()
+        pongService.pingWriter = pingService.getQueueWriter()
+        while (pingService.pongWriter.offer(1)) {
         }
     }
 }
@@ -144,7 +140,7 @@ class ServiceTests : PronghornTestWithWorkerCleanup() {
 
     @RepeatedTest(64)
     fun pipelinesShouldRescheduleBetweenServicesTest() {
-        val workCount = 1000000L
+        val workCount = 10000000L
         val worker = getWorker(false) { PingPongWorker(workCount) }
 
         val pre = System.currentTimeMillis()

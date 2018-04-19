@@ -12,60 +12,59 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
+ *//*
 
-package tech.pronghorn.coroutines.awaitable.future
 
+package tech.pronghorn.coroutines.awaitable.future.primitive
+
+import tech.pronghorn.coroutines.awaitable.future.FutureState
 import tech.pronghorn.coroutines.core.*
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutionException
 import kotlin.coroutines.experimental.Continuation
 import kotlin.coroutines.experimental.intrinsics.COROUTINE_SUSPENDED
 
-public class CoroutineFuture<T>(private val onComplete: ((T) -> Unit)? = null) {
-    private var result: T? = null
+public class CoroutineFutureLong(private val onComplete: ((Long) -> Unit)? = null) {
+    private var result: Long = 0
     private var exception: ExecutionException? = null
     private var state = FutureState.INITIALIZED
-    private var waiter: Continuation<T>? = null
+    private var waiter: Continuation<Long>? = null
 
     companion object {
         private val cancelledException = CancellationException()
 
-        public fun <C> completed(value: C): CoroutineFuture<C> = CoroutineFuture(value)
+        public fun completed(value: Long): CoroutineFutureLong = CoroutineFutureLong(value)
     }
 
-    internal constructor(value: T) : this() {
+    internal constructor(value: Long) : this() {
         this.result = value
         this.state = FutureState.COMPLETED_SUCCESS
     }
 
-    public fun externalPromise(): CoroutinePromise<T> {
+    public fun externalPromise(): CoroutinePromiseLong {
         val worker = ThreadLocalWorker.get()
         if (state != FutureState.INITIALIZED) {
             throw IllegalStateException("The promise can only be fetched immediately after creation, and only once, current state : $state")
         }
         state = FutureState.PROMISED
-        return ExternalPromise(worker, this)
+        return ExternalPromiseLong(worker, this)
     }
 
-    public fun promise(): CoroutinePromise<T> {
+    public fun promise(): CoroutinePromiseLong {
         if (state != FutureState.INITIALIZED) {
             throw IllegalStateException("The promise can only be fetched immediately after creation, and only once, current state : $state")
         }
         state = FutureState.PROMISED
-        return InternalPromise(this)
+        return InternalPromiseLong(this)
     }
 
-    public fun poll(): T? = if (isDone()) get() else null
+    public fun poll(): Long? = if (isDone()) get() else null
 
-    public suspend fun awaitAsync(): T {
-        val result = poll()
-        if(result != null){
-            return result
+    public suspend fun awaitAsync(): Long {
+        if(isDone()) {
+            return get()
         }
-        if(waiter != null){
-            throw IllegalStateException("CoroutineFuture only supports a single waiter, use CoroutineFutureMultiWaiter for multiple waiters.")
-        }
+
         return suspendCoroutine { continuation ->
             waiter = continuation
             COROUTINE_SUSPENDED
@@ -80,7 +79,7 @@ public class CoroutineFuture<T>(private val onComplete: ((T) -> Unit)? = null) {
         return state != FutureState.PROMISED && state != FutureState.INITIALIZED
     }
 
-    internal fun completeFromWorker(result: T) {
+    internal fun completeFromWorker(result: Long) {
         if (isDone()) {
             throw IllegalStateException("Attempted to complete future in invalid state : $state")
         }
@@ -116,18 +115,19 @@ public class CoroutineFuture<T>(private val onComplete: ((T) -> Unit)? = null) {
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun wake(value: T) {
+    private fun wake(value: Long) {
         val waiter = this.waiter ?: return
         val context = waiter.context as PronghornCoroutineContext
         context.wake(waiter, value)
     }
 
-    public fun get(): T {
+    public fun get(): Long {
         when (state) {
-            FutureState.COMPLETED_SUCCESS -> return result!!
+            FutureState.COMPLETED_SUCCESS -> return result
             FutureState.COMPLETED_EXCEPTION -> throw exception!!
             FutureState.CANCELLED -> throw cancelledException
             else -> throw IllegalStateException("Cannot get from future in state : $state")
         }
     }
 }
+*/

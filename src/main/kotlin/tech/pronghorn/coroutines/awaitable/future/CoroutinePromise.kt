@@ -17,7 +17,8 @@
 package tech.pronghorn.coroutines.awaitable.future
 
 import tech.pronghorn.coroutines.core.CoroutineWorker
-import java.util.concurrent.atomic.AtomicReference
+import tech.pronghorn.coroutines.core.RunnableInWorker
+import java.util.concurrent.atomic.AtomicInteger
 
 public sealed class CoroutinePromise<T> {
     public abstract fun isCancelled(): Boolean
@@ -32,42 +33,57 @@ public sealed class CoroutinePromise<T> {
 }
 
 internal class ExternalPromise<T>(val worker: CoroutineWorker,
-                                  private val future: CoroutineFuture<T>) : CoroutinePromise<T>() {
-    private val state = AtomicReference<FutureState>(FutureState.PROMISED)
+                                  private val future: CoroutineFuture<T>) : CoroutinePromise<T>(), RunnableInWorker {
+    private val state = AtomicInteger(FutureState.PROMISED.ordinal)
+    private var finalState: Int = 0
+    private var result: Any? = null
 
-    override fun isCancelled(): Boolean = state.get() == FutureState.CANCELLED
+    override fun isCancelled(): Boolean = state.get() == FutureState.CANCELLED.ordinal
 
-    override fun isDone(): Boolean = state.get() != FutureState.PROMISED
+    override fun isDone(): Boolean = state.get() != FutureState.PROMISED.ordinal
+
+    @Suppress("UNCHECKED_CAST")
+    override fun runInWorker() {
+        when(finalState) {
+            FutureState.COMPLETED_SUCCESS.ordinal -> future.completeFromWorker(result as T)
+            FutureState.COMPLETED_EXCEPTION.ordinal -> future.completeExceptionallyFromWorker(result as Throwable)
+            FutureState.CANCELLED.ordinal -> future.cancelFromWorker()
+            else -> IllegalStateException("Unexpected future state at resolution")
+        }
+    }
 
     override fun complete(result: T): Boolean {
-        if (!state.compareAndSet(FutureState.PROMISED, FutureState.COMPLETED_SUCCESS)){
+        if (!state.compareAndSet(FutureState.PROMISED.ordinal, FutureState.COMPLETED_SUCCESS.ordinal)){
             return false
         }
 
-        worker.executeInWorker {
-            future.completeFromWorker(result)
-        }
+        finalState = FutureState.COMPLETED_SUCCESS.ordinal
+        this.result = result
+
+        worker.executeInWorker(this)
         return true
     }
 
     override fun completeExceptionally(throwable: Throwable): Boolean {
-        if (!state.compareAndSet(FutureState.PROMISED, FutureState.COMPLETED_EXCEPTION)){
+        if (!state.compareAndSet(FutureState.PROMISED.ordinal, FutureState.COMPLETED_EXCEPTION.ordinal)){
             return false
         }
 
-        worker.executeInWorker {
-            future.completeExceptionallyFromWorker(throwable)
-        }
+        finalState = FutureState.COMPLETED_EXCEPTION.ordinal
+        this.result = throwable
+
+        worker.executeInWorker(this)
         return true
     }
 
     override fun cancel(): Boolean {
-        if (!state.compareAndSet(FutureState.PROMISED, FutureState.CANCELLED)){
-            return false}
-
-        worker.executeInWorker {
-            future.cancelFromWorker()
+        if (!state.compareAndSet(FutureState.PROMISED.ordinal, FutureState.CANCELLED.ordinal)){
+            return false
         }
+
+        finalState = FutureState.CANCELLED.ordinal
+
+        worker.executeInWorker(this)
         return true
     }
 }

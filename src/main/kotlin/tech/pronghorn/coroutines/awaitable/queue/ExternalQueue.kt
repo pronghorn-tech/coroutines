@@ -16,8 +16,6 @@
 
 package tech.pronghorn.coroutines.awaitable.queue
 
-import tech.pronghorn.coroutines.awaitable.Awaitable
-import tech.pronghorn.coroutines.awaitable.await
 import tech.pronghorn.coroutines.awaitable.future.CoroutineFuture
 import tech.pronghorn.coroutines.awaitable.future.CoroutinePromise
 import tech.pronghorn.plugins.mpscQueue.MpscQueuePlugin
@@ -56,13 +54,13 @@ public class ExternalQueue<T>(public val capacity: Int) {
                 promise.cancel()
                 return true
             }
-            await(future)
+            future.awaitAsync()
             return addAsync(value)
         }
     }
 
-    public class Reader<T>(private val wrapper: ExternalQueue<T>) : Awaitable<T>() {
-        override fun poll(): T? {
+    public class Reader<T>(private val wrapper: ExternalQueue<T>) {
+        public fun poll(): T? {
             val result = wrapper.queue.poll()
             if(result != null){
                 var promise = wrapper.fullWaiters.poll()
@@ -90,7 +88,7 @@ public class ExternalQueue<T>(public val capacity: Int) {
             return drained
         }
 
-        override suspend fun awaitAsync(): T {
+        public suspend fun awaitAsync(): T {
             val result = poll()
             if (result != null) {
                 return result
@@ -102,7 +100,7 @@ public class ExternalQueue<T>(public val capacity: Int) {
                 return poll()!!
             }
             else {
-                return await(future)
+                return future.awaitAsync()
             }
         }
     }
