@@ -229,7 +229,7 @@ public open class CoroutineWorker : Lifecycle() {
                         wakeTime < 1000000 -> selector.selectNow()
                         else -> {
                             // convert because selector.select() only has millisecond precision where service timeouts are calculated in nanoseconds
-                            selector.select(wakeTime.div(1000000L) - 1)
+                            selector.select(Math.max(1, wakeTime.div(1000000L) - 1))
                         }
                     }
                 }
