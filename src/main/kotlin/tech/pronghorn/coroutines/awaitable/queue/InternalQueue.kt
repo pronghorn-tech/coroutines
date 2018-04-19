@@ -16,7 +16,6 @@
 
 package tech.pronghorn.coroutines.awaitable.queue
 
-import tech.pronghorn.coroutines.awaitable.Awaitable
 import tech.pronghorn.coroutines.core.PronghornCoroutineContext
 import tech.pronghorn.coroutines.core.suspendCoroutine
 import tech.pronghorn.plugins.internalQueue.InternalQueuePlugin
@@ -54,7 +53,7 @@ public class InternalQueue<T>(capacity: Int) {
         }
     }
 
-    public class Reader<T>(private val wrapper: InternalQueue<T>) : Awaitable<T>() {
+    public class Reader<T>(private val wrapper: InternalQueue<T>) {
         public fun isEmpty(): Boolean = wrapper.queue.isEmpty()
 
         public fun isNotEmpty(): Boolean = wrapper.queue.isNotEmpty()
@@ -77,7 +76,7 @@ public class InternalQueue<T>(capacity: Int) {
             }
         }
 
-        override fun poll(): T? {
+        public fun poll(): T? {
             val result = wrapper.queue.poll()
             if (result != null) {
                 val waiter = wrapper.fullWaiters.poll()
@@ -88,7 +87,7 @@ public class InternalQueue<T>(capacity: Int) {
             return result
         }
 
-        override suspend fun awaitAsync(): T {
+        public suspend fun awaitAsync(): T {
             val result = poll()
             if (result != null) {
                 return result

@@ -18,7 +18,6 @@ package tech.pronghorn.coroutines.awaitable.future
 
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.RepeatedTest
-import tech.pronghorn.coroutines.awaitable.await
 import tech.pronghorn.coroutines.core.CoroutineWorker
 import tech.pronghorn.coroutines.core.Service
 import tech.pronghorn.coroutines.services.InternalQueueService
@@ -33,9 +32,9 @@ class InternalPromiseTests : PronghornTest() {
         var exceptions = 0
 
         @Suppress("PARAMETER_NAME_CHANGED_ON_OVERRIDE")
-        suspend override fun process(future: CoroutineFuture<Int>): Boolean {
+        override suspend fun process(future: CoroutineFuture<Int>): Boolean {
             try {
-                val value = await(future)
+                val value = future.awaitAsync()
                 total += value
             }
             catch (ex: CancellationException) {

@@ -19,13 +19,12 @@ package tech.pronghorn.coroutines.awaitable.future
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.RepeatedTest
 import tech.pronghorn.coroutines.PronghornTestWithWorkerCleanup
-import tech.pronghorn.coroutines.awaitable.await
 import tech.pronghorn.coroutines.awaitable.queue.ExternalQueue
-import tech.pronghorn.coroutines.core.*
+import tech.pronghorn.coroutines.core.CoroutineWorker
+import tech.pronghorn.coroutines.core.Service
 import tech.pronghorn.coroutines.services.ExternalQueueService
 import tech.pronghorn.plugins.logging.LoggingPlugin
-import tech.pronghorn.test.eventually
-import tech.pronghorn.test.heavyRepeatCount
+import tech.pronghorn.test.*
 import java.time.Duration
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutionException
@@ -40,9 +39,9 @@ class ExternalPromiseTests : PronghornTestWithWorkerCleanup() {
         var exceptions = 0
 
         @Suppress("PARAMETER_NAME_CHANGED_ON_OVERRIDE")
-        suspend override fun process(future: CoroutineFuture<Int>) {
+        override suspend fun process(future: CoroutineFuture<Int>) {
             try {
-                val value = await(future)
+                val value = future.awaitAsync()
                 total += value
             }
             catch (ex: CancellationException) {
@@ -303,14 +302,13 @@ class ExternalPromiseTests : PronghornTestWithWorkerCleanup() {
         }
     }
 
-    @RepeatedTest(16)
+    @RepeatedTest(lightRepeatCount)
     fun stressTest() {
-        val logger = LoggingPlugin.get(javaClass)
         val workerA = getWorker(false)
         val workerB = getWorker(false)
 
         val externalQueue = ExternalQueue<CoroutinePromise<Long>>(1024)
-        val count = 1000000L
+        val count = 10000000L
         var total = 0L
 
         val serviceA = object : Service() {
@@ -319,15 +317,8 @@ class ExternalPromiseTests : PronghornTestWithWorkerCleanup() {
 
             suspend override fun run() {
                 val writer = externalQueue.writer
-                logger.error { "Starting" }
                 while (x < count) {
-                    val future = CoroutineFuture<Long>({ result ->
-                        if (total % 100000 == 0L) {
-                            val now = System.nanoTime()
-                            logger.info { "RETURNED after ${now - result} ns to process future.complete() " }
-                        }
-                        total += 1
-                    })
+                    val future = CoroutineFuture<Long>({ total += 1 })
                     val promise = future.externalPromise()
                     writer.offer(promise) || writer.addAsync(promise)
                     x += 1
